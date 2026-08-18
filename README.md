@@ -6,6 +6,8 @@ Personal Codex skills, packaged for installation with the [`skills` CLI](https:/
 
 - [`coordinate-multi-ticket-run`](skills/coordinate-multi-ticket-run/README.md): coordinate an approved dependency-ordered ticket graph through a
   deterministic workflow state machine and evidence-backed agent delivery.
+- [`orchestrate-implementation-run`](skills/orchestrate-implementation-run/SKILL.md): coordinate approved implementation work with focused Sol
+  scouts and workers, a single notes owner, and evidence-backed verification.
 - [`maintain-implementation-notes`](skills/maintain-implementation-notes/README.md): maintain a self-contained HTML decision and verification
   ledger while implementing a specification.
 - [`run-apple-verification-loop`](skills/run-apple-verification-loop/README.md): reserve isolated Apple verification lanes and produce exact test,
@@ -15,7 +17,7 @@ Personal Codex skills, packaged for installation with the [`skills` CLI](https:/
 
 The repository is private. Authenticate GitHub access on the machine first, for example with `gh auth login`.
 
-Install all three skills globally for Codex:
+Install all four skills globally for Codex:
 
 ```sh
 npx skills add dominikdrag/ddskills --skill '*' -g -a codex -y

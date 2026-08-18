@@ -1,0 +1,4 @@
+interface:
+  display_name: "Coordinate Multi-Ticket Run"
+  short_description: "Run ticket graphs through delegated delivery"
+  default_prompt: "Use $coordinate-multi-ticket-run to implement this approved ticket set from its current frontier."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Maintain Implementation Notes"
+  short_description: "Keep a durable spec decision ledger"
+  default_prompt: "Use $maintain-implementation-notes to create or update the running implementation-notes HTML for this spec."

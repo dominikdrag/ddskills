@@ -1,0 +1,4 @@
+interface:
+  display_name: "Apple Verification Loop"
+  short_description: "Run isolated, evidence-backed Apple verification"
+  default_prompt: "Use $run-apple-verification-loop to reserve isolated simulator lanes and verify this Apple-platform change."

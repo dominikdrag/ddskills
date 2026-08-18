@@ -40,7 +40,13 @@ Store a short table with runtime evidence:
 | --- | --- | --- | --- | --- | --- | --- |
 | `<id>` | Exact scenario, binary, device, and state | Control activated by ID | User-visible downstream result | AXTree and visual observation | Raw tree/log and screenshot paths | PASS/FAIL/BLOCKED |
 
-Inspect the accessibility tree before pixels. Use screenshots for visual claims, known AXTree defects, or representative proof. Do not claim a platform or persistence result from a static image alone.
+Use `$computer-use` for Device Hub and runtime app interaction. Before each action, fetch fresh accessibility state for the exact owned window or app
+surface; prefer element-based actions, and fetch state again before deciding the next action. Do not reuse stale element indices. Record the relevant
+before-and-after accessibility observations with the case evidence.
+
+Use screenshots for visual claims, incomplete accessibility data, known accessibility-tree defects, or representative proof. Do not claim a
+platform or persistence result from a static image alone. Follow the Computer Use confirmation policy; lane ownership does not authorize unrelated
+or consequential UI actions.
 
 ## Stop conditions
 
@@ -48,6 +54,7 @@ Stop and coordinate when:
 
 - another lane owns the UDID, workspace, DerivedData, Device Hub window, or evidence path;
 - Xcode shows only a generic destination label and Device Hub UUID is unverified;
+- Computer Use cannot verify the owned Device Hub window, leased UUID, exact app surface, or current accessibility state;
 - a foreign process is using an owned resource;
 - the workspace, generated project, binary, or source revision is stale or unknown;
 - a test exits zero but is skipped or executes zero tests;

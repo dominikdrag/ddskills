@@ -1,16 +1,17 @@
 ---
 name: coordinate-multi-ticket-run
 description: >-
-  Coordinate an approved dependency-ordered set of local implementation tickets to completion in one Codex thread using a long-lived GPT-5.6
-  Sol High run coordinator, disposable GPT-5.6 Sol xhigh ticket coordinators, fresh role-specific leaf agents, persistent external state,
-  evidence-backed acceptance audits, and blocked/dead-agent recovery. Use when the user asks Codex to implement multiple approved tickets end to
-  end from a specification and local ticket graph. Do not use to design the specification, create the tickets, or execute one isolated ticket.
+  Coordinate an approved dependency-ordered set of local implementation tickets to completion in one Codex thread. The invoking thread acts as
+  the run coordinator while delegating to disposable GPT-5.6 Sol xhigh ticket coordinators and fresh role-specific leaf agents, with persistent
+  external state, evidence-backed acceptance audits, and blocked/dead-agent recovery. Use when the user asks Codex to implement multiple approved
+  tickets end to end from a specification and local ticket graph. Do not use to design the specification, create the tickets, or execute one
+  isolated ticket.
 ---
 
 # Coordinate Multi-Ticket Run
 
 Walk an approved local ticket graph to its truthful stopping condition without accumulating ticket-level implementation context at the top.
-Keep one run coordinator with the user and give each ticket a fresh end-to-end coordinator.
+The invoking thread or agent is the run coordinator: keep it with the user and give each ticket a fresh end-to-end coordinator.
 
 ## Establish the run contract
 
@@ -30,13 +31,15 @@ executes an approved graph; it does not silently redesign one.
 
 ## Use the prescribed topology
 
-Use `model: "gpt-5.6-sol"` for every spawned agent and assign effort where ambiguity lives. Translate the human-facing labels to callable values:
+Do not spawn a separate run coordinator or assign a model or reasoning effort to it. The invoking thread already owns that role and retains its
+current configuration.
+
+Use `model: "gpt-5.6-sol"` for every delegated agent and assign effort where ambiguity lives. Translate the human-facing labels to callable values:
 Sol Light is `reasoning_effort: "low"`, Sol Medium is `"medium"`, Sol High is `"high"`, and Sol xhigh is `"xhigh"`. Never pass `"light"` as a
 reasoning-effort value.
 
-| Role | Label and callable effort | Responsibility |
+| Delegated role | Label and callable effort | Responsibility |
 | --- | --- | --- |
-| Run coordinator | Sol High / `"high"`, long-lived root | Maintain the frontier, stay with the user, audit boundaries, recover, and report. |
 | Ticket coordinator | Sol xhigh / `"xhigh"`, fresh | Own one ticket end to end, including delegated work and authorized closure. |
 | Scout | Sol Light / `"low"`, fresh, read-only | Answer one bounded codebase, rule, test, scenario, or blast-radius question. |
 | Worker | Sol Medium / `"medium"`, fresh | Implement one routine slice on explicitly owned files. |
@@ -45,10 +48,11 @@ reasoning-effort value.
 | QA worker | Sol Medium / `"medium"`, fresh | Run the repository's device or visual-verification flow and produce evidence. |
 | Acceptance checker | Sol Light / `"low"`, fresh, read-only | Audit ticket closure against evidence and repository state. |
 
-Read the configured per-thread concurrency capacity; it defaults to four agents including the run coordinator and every nested agent. At the default:
+Read the configured per-thread concurrency capacity; it defaults to four agents including the invoking agent and every delegated agent. At the
+default:
 
 ```text
-[run coordinator] [ticket coordinator] [leaf] [leaf]
+[invoking agent] [ticket coordinator] [leaf] [leaf]
 ```
 
 Keep one ticket coordinator alive at a time. With fewer than four slots, serialize leaves. With four slots, the ticket coordinator may run two useful,

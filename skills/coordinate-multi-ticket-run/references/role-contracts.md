@@ -3,6 +3,8 @@
 Read this file before spawning the first ticket coordinator or leaf. Replace placeholders with resolved paths or identifiers. Do not create a
 separate run brief.
 
+The run coordinator is the thread or agent that invoked the skill. Do not spawn or reconfigure a separate agent for that role.
+
 ## Ticket coordinator
 
 Spawn with `model: "gpt-5.6-sol"`, `reasoning_effort: "xhigh"`, and `fork_turns: "none"`:

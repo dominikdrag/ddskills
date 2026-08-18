@@ -30,7 +30,7 @@ User
                              v
               +------------------------------------------+
               | Ticket coordinator                       |
-              | GPT-5.6 Sol xhigh / "xhigh"              |
+              | GPT-5.6 Sol High / "high"                |
               | Fresh: owns one ticket end to end         |
               +------------------+-----------------------+
                                  |
@@ -70,8 +70,8 @@ Leaf roles are selected by the work:
 | Scout | GPT-5.6 Sol Light, `low` | Narrow read-only discovery |
 | Worker | GPT-5.6 Sol Medium, `medium` | Routine implementation on owned files |
 | Complex worker | GPT-5.6 Sol High, `high` | Difficult implementation or ambiguity |
-| Reviewer | GPT-5.6 Sol High, `high` | Read-only standards and acceptance review |
-| QA worker | GPT-5.6 Sol Medium, `medium` | Runtime or visual verification |
+| Reviewer | GPT-5.6 Sol Medium, `medium` | Read-only standards and acceptance review |
+| QA worker | GPT-5.6 Sol Light, `low` | Runtime or visual verification |
 
 Only the invoking agent and ticket coordinator delegate. Every leaf receives fresh context, a complete assignment, explicit ownership, named
 dependencies, and a no-delegation boundary.

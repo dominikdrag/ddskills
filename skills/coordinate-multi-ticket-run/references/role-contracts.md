@@ -7,7 +7,7 @@ The run coordinator is the thread or agent that invoked the skill. Do not spawn 
 
 ## Ticket coordinator
 
-Spawn with `model: "gpt-5.6-sol"`, `reasoning_effort: "xhigh"`, and `fork_turns: "none"`:
+Spawn with `model: "gpt-5.6-sol"`, `reasoning_effort: "high"`, and `fork_turns: "none"`:
 
 > You are the ticket coordinator for `<ticket-id>`. Work from the current Git worktree. Read `AGENTS.md` and its rule dispatcher first, then only
 > the routed rules and context for this work. Read `<spec>`, the complete ticket set `<tickets>`, and `<ticket>`. Use `<notes>` through
@@ -52,7 +52,7 @@ work without changing the leaf boundary:
 
 ## Reviewer
 
-Spawn with `model: "gpt-5.6-sol"`, `reasoning_effort: "high"`, `fork_turns: "none"`, and read-only scope:
+Spawn with `model: "gpt-5.6-sol"`, `reasoning_effort: "medium"`, `fork_turns: "none"`, and read-only scope:
 
 > Review `<diff-or-commits>` for `<ticket>` against two axes: repository standards and specification/ticket acceptance. Read the repository contract,
 > routed rules, `<spec-sections>`, and the complete ticket. Inspect the actual diff and relevant tests. Return findings ordered by severity with exact
@@ -63,7 +63,7 @@ Spawn with `model: "gpt-5.6-sol"`, `reasoning_effort: "high"`, `fork_turns: "non
 
 ## QA worker
 
-Spawn with `model: "gpt-5.6-sol"`, `reasoning_effort: "medium"`, and `fork_turns: "none"`:
+Spawn with `model: "gpt-5.6-sol"`, `reasoning_effort: "low"`, and `fork_turns: "none"`:
 
 > Verify `<flow-or-scenarios>` for `<ticket>` using the repository's QA contract and `$run-apple-verification-loop`. Own only the explicitly reserved
 > lane and evidence directory. Record exact workspace/binary/scenario/device provenance, actions, observations, screenshots, and blockers. Reject

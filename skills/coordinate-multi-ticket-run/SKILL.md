@@ -2,7 +2,7 @@
 name: coordinate-multi-ticket-run
 description: >-
   Coordinate an approved dependency-ordered set of local implementation tickets to completion in one Codex thread. The invoking thread acts as
-  the run coordinator while delegating to disposable GPT-5.6 Sol xhigh ticket coordinators and fresh role-specific leaf agents, with persistent
+  the run coordinator while delegating to disposable GPT-5.6 Sol High ticket coordinators and fresh role-specific leaf agents, with persistent
   external state, evidence-backed acceptance audits, and blocked/dead-agent recovery. Use when the user asks Codex to implement multiple approved
   tickets end to end from a specification and local ticket graph. Do not use to design the specification, create the tickets, or execute one
   isolated ticket.
@@ -35,17 +35,16 @@ Do not spawn a separate run coordinator or assign a model or reasoning effort to
 current configuration.
 
 Use `model: "gpt-5.6-sol"` for every delegated agent and assign effort where ambiguity lives. Translate the human-facing labels to callable values:
-Sol Light is `reasoning_effort: "low"`, Sol Medium is `"medium"`, Sol High is `"high"`, and Sol xhigh is `"xhigh"`. Never pass `"light"` as a
-reasoning-effort value.
+Sol Light is `reasoning_effort: "low"`, Sol Medium is `"medium"`, and Sol High is `"high"`. Never pass `"light"` as a reasoning-effort value.
 
 | Delegated role | Label and callable effort | Responsibility |
 | --- | --- | --- |
-| Ticket coordinator | Sol xhigh / `"xhigh"`, fresh | Own one ticket end to end, including delegated work and authorized closure. |
+| Ticket coordinator | Sol High / `"high"`, fresh | Own one ticket end to end, including delegated work and authorized closure. |
 | Scout | Sol Light / `"low"`, fresh, read-only | Answer one bounded codebase, rule, test, scenario, or blast-radius question. |
 | Worker | Sol Medium / `"medium"`, fresh | Implement one routine slice on explicitly owned files. |
 | Complex worker | Sol High / `"high"`, fresh | Implement a wide seam, projection/engine core, migration, or tricky tests. |
-| Reviewer | Sol High / `"high"`, fresh, read-only | Review repository standards and specification/ticket acceptance. |
-| QA worker | Sol Medium / `"medium"`, fresh | Run the repository's device or visual-verification flow and produce evidence. |
+| Reviewer | Sol Medium / `"medium"`, fresh, read-only | Review repository standards and specification/ticket acceptance. |
+| QA worker | Sol Light / `"low"`, fresh | Run the repository's device or visual-verification flow and produce evidence. |
 | Acceptance checker | Sol Light / `"low"`, fresh, read-only | Audit ticket closure against evidence and repository state. |
 
 Read the configured per-thread concurrency capacity; it defaults to four agents including the invoking agent and every delegated agent. At the
@@ -103,8 +102,8 @@ Re-derive the frontier from these artifacts after any interruption. Never recons
 
 1. Compute the frontier: tickets not done whose blockers are all done. Honor the repository's exact status vocabulary.
 2. Select the lowest-numbered frontier ticket unless the user or specification defines another priority.
-3. Spawn one GPT-5.6 Sol xhigh ticket coordinator with `fork_turns: "none"` using the ticket-coordinator contract. Point it directly at the
-   specification, ticket set, selected ticket, notes page, and resolved evidence location.
+3. Spawn one GPT-5.6 Sol High ticket coordinator with `reasoning_effort: "high"` and `fork_turns: "none"` using the ticket-coordinator contract.
+   Point it directly at the specification, ticket set, selected ticket, notes page, and resolved evidence location.
 4. Stay available to the user. Forward new direction affecting the active ticket to its coordinator; do not start a second coordinator.
 5. Require the ticket coordinator to orient, plan thin slices, maintain the active-assignment ledger, delegate bounded leaves, route direct dependency
    messages, implement, run focused gates, obtain fresh review, maintain implementation notes, and return the bounded report from the role contract.
@@ -133,7 +132,7 @@ For a dead or interrupted ticket coordinator:
 
 1. Inspect ticket state, notes, the active-assignment ledger, evidence, `git status`, and authorized commits.
 2. Record exactly what landed and what remains; do not infer completion.
-3. Respawn the same ticket with a fresh GPT-5.6 Sol xhigh coordinator and the recovered-state addendum from the role contracts.
+3. Respawn the same ticket with a fresh GPT-5.6 Sol High coordinator and the recovered-state addendum from the role contracts.
 
 ## Enforce truthful closure
 

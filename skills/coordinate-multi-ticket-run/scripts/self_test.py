@@ -162,6 +162,25 @@ class WorkflowTests(unittest.TestCase):
             action["recoveredState"]["unresolvedAssignments"], ["/root/ticket_001"]
         )
 
+    def test_fresh_coordinator_can_acknowledge_recovery(self) -> None:
+        state = fixture("interrupted-recovery.json")
+        state["assignments"][0]["agent"] = "/root/ticket_001_recovery"
+        event = workflow.mark_resumed(state, "001", "/root/ticket_001_recovery")
+        self.assertEqual(event["type"], "recovered")
+        self.assertFalse(state["tickets"][0]["interrupted"])
+        self.assertEqual(
+            workflow.next_action(state),
+            {"action": "wait_ticket_coordinator", "ticket": "001"},
+        )
+
+    def test_recovery_rejects_an_actor_without_the_live_assignment(self) -> None:
+        state = fixture("interrupted-recovery.json")
+        original = copy.deepcopy(state)
+        with self.assertRaises(workflow.WorkflowError) as context:
+            workflow.mark_resumed(state, "001", "/root/other")
+        self.assertEqual(context.exception.exit_code, 3)
+        self.assertEqual(state, original)
+
     def test_complete_evidence_allows_close_transition(self) -> None:
         state = fixture("successful-completion.json")
         event = workflow.transition(
@@ -232,6 +251,20 @@ def dry_run() -> Dict[str, Any]:
         recovery_path = root / "recovery.json"
         shutil.copyfile(str(FIXTURES / "interrupted-recovery.json"), str(recovery_path))
         recovery = json.loads(run_cli("next", "--state", str(recovery_path)).stdout)
+        recovery_state = workflow.read_state(recovery_path)
+        recovery_state["assignments"][0]["agent"] = "/root/ticket_001_recovery"
+        workflow.write_state(recovery_path, recovery_state)
+        resumed = json.loads(
+            run_cli(
+                "resume",
+                "--state",
+                str(recovery_path),
+                "--ticket",
+                "001",
+                "--actor",
+                "/root/ticket_001_recovery",
+            ).stdout
+        )
 
         rejection_path = root / "rejection.json"
         shutil.copyfile(str(FIXTURES / "missing-evidence.json"), str(rejection_path))
@@ -284,6 +317,7 @@ def dry_run() -> Dict[str, Any]:
             "recoveredUnresolvedAssignments": recovery["recoveredState"][
                 "unresolvedAssignments"
             ],
+            "recoveryResumeAction": resumed["next"]["action"],
             "closureRejection": rejection["error"].split(":", 1)[0],
             "acceptedTransition": accepted["event"]["to"],
             "finalAction": complete["action"],

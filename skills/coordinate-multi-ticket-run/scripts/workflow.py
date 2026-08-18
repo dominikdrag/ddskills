@@ -766,6 +766,44 @@ def mark_interrupted(
     }
 
 
+def mark_resumed(state: Dict[str, Any], ticket_id: str, actor: str) -> Dict[str, Any]:
+    if not actor.strip():
+        raise WorkflowError("recovery actor must be non-empty", exit_code=3)
+    errors = state_errors(state)
+    if errors:
+        raise WorkflowError("invalid state: {}".format("; ".join(errors)))
+    ticket = tickets_by_id(state).get(ticket_id)
+    if ticket is None:
+        raise WorkflowError("unknown ticket: {}".format(ticket_id))
+    if (
+        ticket.get("phase") not in ACTIVE_PHASES
+        or ticket.get("interrupted") is not True
+    ):
+        raise WorkflowError(
+            "ticket {} is not awaiting recovery".format(ticket_id), exit_code=3
+        )
+    coordinators = [
+        assignment
+        for assignment in state.get("assignments", [])
+        if assignment.get("ticket") == ticket_id
+        and assignment.get("role") == "ticket-coordinator"
+        and assignment.get("status") in {"pending", "active"}
+    ]
+    if len(coordinators) != 1 or coordinators[0].get("agent") != actor:
+        raise WorkflowError(
+            "recovery actor must be the sole pending or active ticket coordinator",
+            exit_code=3,
+        )
+    coordinators[0]["status"] = "active"
+    ticket["interrupted"] = False
+    return {
+        "type": "recovered",
+        "ticket": ticket_id,
+        "phase": ticket.get("phase"),
+        "actor": actor,
+    }
+
+
 def event_path(
     state_path: Path, state: Dict[str, Any], override: Optional[str]
 ) -> Path:
@@ -859,6 +897,14 @@ def parser() -> argparse.ArgumentParser:
     interrupt_parser.add_argument("--actor", required=True)
     interrupt_parser.add_argument("--reason", required=True)
     interrupt_parser.add_argument("--events")
+
+    resume_parser = commands.add_parser(
+        "resume", help="acknowledge takeover by a fresh ticket coordinator"
+    )
+    resume_parser.add_argument("--state", required=True)
+    resume_parser.add_argument("--ticket", required=True)
+    resume_parser.add_argument("--actor", required=True)
+    resume_parser.add_argument("--events")
     return root
 
 
@@ -901,8 +947,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 args.reason,
                 args.repository_status,
             )
-        else:
+        elif args.command == "interrupt":
             event = mark_interrupted(state, args.ticket, args.actor, args.reason)
+        else:
+            event = mark_resumed(state, args.ticket, args.actor)
         enriched = append_event(
             event_path(state_path, state, args.events), state, event
         )

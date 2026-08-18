@@ -33,7 +33,8 @@ blocked -> queued | coordinating
 
 `closed` is terminal. A `ready_to_close -> closed` transition is rejected until every deterministic closure gate passes, and later validation rejects
 any closed ticket whose proof becomes missing or invalid. Mark an active ticket as interrupted instead of changing its phase; the next action will
-contain a recovered-state summary for a fresh coordinator.
+contain a recovered-state summary for a fresh coordinator. After ledger takeover and artifact reconciliation, that coordinator runs `resume`; the
+command verifies sole live ownership, clears the interruption marker, and records a `recovered` event.
 
 ## Assignment ledger
 
@@ -82,13 +83,15 @@ Resolve the script from the selected skill directory:
 python3 <skill-dir>/scripts/workflow.py validate --state <evidence>/run.json
 python3 <skill-dir>/scripts/workflow.py next --state <evidence>/run.json
 python3 <skill-dir>/scripts/workflow.py recover --state <evidence>/run.json --ticket 027
+python3 <skill-dir>/scripts/workflow.py resume --state <evidence>/run.json --ticket 027 --actor /root/ticket_027_recovery
 python3 <skill-dir>/scripts/workflow.py transition --state <evidence>/run.json --ticket 027 --to coordinating --actor /root --repository-status 3-in-progress
 python3 <skill-dir>/scripts/workflow.py interrupt --state <evidence>/run.json --ticket 027 --actor /root --reason "coordinator stopped"
 ```
 
 Commands emit one compact JSON object. Plain `validate` checks structure and explicitly returns `closureChecked: false`; pass `--closure <ticket>` to
-audit closure. Invalid validation returns exit `2`. A rejected mutating transition, including `ready_to_close -> closed`, returns exit `3` without
-changing state or writing an event. `next` returns exit `0` for every valid routing outcome, including `reject_closure`; callers must route on its
-`action`. Mutating commands atomically replace `run.json` and append a sequenced event to the JSONL log.
+audit closure. Invalid validation returns exit `2`. A rejected mutating command, including `ready_to_close -> closed` or an invalid recovery claim,
+returns exit `3` without changing state or writing an event. `next` returns exit `0` for every valid routing outcome, including `reject_closure`;
+callers must route on its `action`. `resume` requires the actor to be the sole pending or active ticket coordinator after ledger takeover. Mutating
+commands atomically replace `run.json` and append a sequenced event to the JSONL log.
 
 Use `--pretty` before the subcommand only for human inspection. Keep compact output for agent routing and persisted evidence.

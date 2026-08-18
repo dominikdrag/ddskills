@@ -4,8 +4,8 @@ Personal Codex skills, packaged for installation with the [`skills` CLI](https:/
 
 ## Skills
 
-- [`coordinate-multi-ticket-run`](skills/coordinate-multi-ticket-run/README.md): coordinate an approved dependency-ordered ticket graph through
-  implementation and evidence-backed closure.
+- [`coordinate-multi-ticket-run`](skills/coordinate-multi-ticket-run/README.md): coordinate an approved dependency-ordered ticket graph through a
+  deterministic workflow state machine and evidence-backed agent delivery.
 - [`maintain-implementation-notes`](skills/maintain-implementation-notes/README.md): maintain a self-contained HTML decision and verification
   ledger while implementing a specification.
 - [`run-apple-verification-loop`](skills/run-apple-verification-loop/README.md): reserve isolated Apple verification lanes and produce exact test,

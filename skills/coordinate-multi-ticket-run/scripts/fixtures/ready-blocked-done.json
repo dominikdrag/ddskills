@@ -1,0 +1,64 @@
+{
+  "assignments": [],
+  "eventLog": "events.jsonl",
+  "evidence": {
+    "001": {
+      "actions": [],
+      "appleLane": {
+        "required": false
+      },
+      "checks": [],
+      "criteria": [
+        {
+          "checked": true,
+          "id": "AC1",
+          "location": "evidence/001/acceptance.json",
+          "observation": "Ticket 001 was accepted"
+        }
+      ],
+      "notes": {
+        "materialOmissions": [],
+        "reviewed": true
+      },
+      "runtime": {
+        "required": false
+      },
+      "scope": {
+        "reviewed": true,
+        "unrelatedChanges": false
+      },
+      "snapshots": {
+        "required": false
+      },
+      "unauthorizedActions": []
+    }
+  },
+  "runId": "fixture-ready-blocked-done",
+  "schemaVersion": 1,
+  "tickets": [
+    {
+      "blockers": [],
+      "id": "001",
+      "order": 1,
+      "phase": "closed",
+      "repositoryStatus": "4-done"
+    },
+    {
+      "blockers": [
+        "001"
+      ],
+      "id": "002",
+      "order": 2,
+      "phase": "queued",
+      "repositoryStatus": "2-ready"
+    },
+    {
+      "blockerReason": "Waiting for a product decision",
+      "blockers": [],
+      "id": "003",
+      "order": 3,
+      "phase": "blocked",
+      "repositoryStatus": "blocked"
+    }
+  ]
+}

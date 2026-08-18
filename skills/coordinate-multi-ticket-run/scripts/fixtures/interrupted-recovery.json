@@ -1,0 +1,52 @@
+{
+  "assignments": [
+    {
+      "agent": "/root/ticket_001",
+      "deliverable": "Coordinate ticket 001 end to end",
+      "dependsOn": [],
+      "ownership": [
+        {
+          "kind": "seam",
+          "value": "ticket:001"
+        }
+      ],
+      "recipient": "/root",
+      "role": "ticket-coordinator",
+      "status": "active",
+      "ticket": "001"
+    },
+    {
+      "agent": "/root/ticket_001/scout",
+      "deliverable": "Find affected tests",
+      "dependsOn": [],
+      "ownership": [],
+      "recipient": "/root/ticket_001",
+      "role": "scout",
+      "status": "done",
+      "ticket": "001"
+    }
+  ],
+  "eventLog": "events.jsonl",
+  "eventSequence": 4,
+  "evidence": {},
+  "lastEvent": {
+    "actor": "/root",
+    "phase": "coordinating",
+    "reason": "Coordinator stopped responding",
+    "sequence": 4,
+    "ticket": "001",
+    "type": "interrupted"
+  },
+  "runId": "fixture-interrupted-recovery",
+  "schemaVersion": 1,
+  "tickets": [
+    {
+      "blockers": [],
+      "id": "001",
+      "interrupted": true,
+      "order": 1,
+      "phase": "coordinating",
+      "repositoryStatus": "3-in-progress"
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 # Coordinate Multi-Ticket Run
 
-Coordinate an approved, dependency-ordered ticket graph from its current frontier to evidence-backed completion.
+Coordinate an approved, dependency-ordered ticket graph from its current frontier to evidence-backed completion. The skill is a thin Codex-facing
+policy and collaboration layer over a deterministic workflow state machine.
 
 Use this skill when a specification and its implementation tickets are already approved. It is not a planning skill: it does not design the
 specification, create tickets, or replace the focused workflow for one isolated ticket.
@@ -12,7 +13,9 @@ one fresh ticket coordinator at a time. The ticket coordinator may delegate boun
 back for an independent acceptance audit.
 
 The run coordinator is not a separate spawned agent. The skill does not assign or change its model or reasoning effort; those assignments apply only
-to delegated agents.
+to delegated agents. `scripts/workflow.py` validates the ticket graph and assignment ledger, derives the next action, enforces phase transitions,
+rejects incomplete closure, records compact events, and derives recovery state. Codex retains repository interpretation, permission decisions, agent
+control, semantic review, and user communication.
 
 At the default four-agent concurrency limit, the topology is:
 
@@ -84,11 +87,26 @@ The system does not treat agent context or a `DONE` label as proof. It recovers 
 - the implementation-notes ledger;
 - scoped commits and the current Git state;
 - raw test, snapshot, and runtime evidence;
-- the active-assignment ledger;
+- the normalized `run.json` ticket graph, active-assignment ledger, evidence projection, and compact JSONL events;
 - Apple verification lane manifests and release state.
 
 The skill uses [`maintain-implementation-notes`](../maintain-implementation-notes/README.md) throughout the run and delegates Apple-platform
-verification to [`run-apple-verification-loop`](../run-apple-verification-loop/README.md).
+verification to [`run-apple-verification-loop`](../run-apple-verification-loop/README.md). The workflow schema and commands are documented in
+[`references/workflow-state.md`](references/workflow-state.md).
+
+## Deterministic verification
+
+From this skill directory:
+
+```sh
+python3 scripts/workflow.py validate --state scripts/fixtures/successful-completion.json --closure 001
+python3 scripts/workflow.py next --state scripts/fixtures/interrupted-recovery.json
+python3 scripts/self_test.py
+python3 scripts/self_test.py --dry-run
+```
+
+The tests cover dependency frontiers, malformed graphs, invalid transitions, overlapping ownership, missing evidence, interrupted recovery, guarded
+closure, compact events, and successful completion.
 
 ## Install
 

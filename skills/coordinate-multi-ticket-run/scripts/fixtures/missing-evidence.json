@@ -1,0 +1,90 @@
+{
+  "assignments": [
+    {
+      "agent": "/root/ticket_001/worker",
+      "deliverable": "Implement ticket 001",
+      "dependsOn": [],
+      "ownership": [
+        {
+          "kind": "path",
+          "value": "Sources/Feature.swift"
+        }
+      ],
+      "recipient": "/root/ticket_001",
+      "role": "worker",
+      "status": "done",
+      "ticket": "001"
+    }
+  ],
+  "eventLog": "events.jsonl",
+  "evidence": {
+    "001": {
+      "actions": [
+        {
+          "authorized": false,
+          "name": "ticket-status",
+          "performed": false,
+          "required": true
+        }
+      ],
+      "appleLane": {
+        "released": false,
+        "required": true
+      },
+      "checks": [
+        {
+          "executedTests": 0,
+          "exitCode": 0,
+          "location": "evidence/tests.log",
+          "name": "focused-tests",
+          "required": true,
+          "requiresExecutedTests": true
+        }
+      ],
+      "criteria": [
+        {
+          "checked": true,
+          "id": "AC1",
+          "location": "",
+          "observation": ""
+        }
+      ],
+      "notes": {
+        "materialOmissions": [
+          "Recovery trade-off"
+        ],
+        "reviewed": true
+      },
+      "runtime": {
+        "complete": false,
+        "required": true
+      },
+      "scope": {
+        "reviewed": true,
+        "unrelatedChanges": true
+      },
+      "snapshots": {
+        "clean": false,
+        "compared": false,
+        "inspected": false,
+        "location": "",
+        "recorded": true,
+        "required": true
+      },
+      "unauthorizedActions": [
+        "worklog-transition"
+      ]
+    }
+  },
+  "runId": "fixture-missing-evidence",
+  "schemaVersion": 1,
+  "tickets": [
+    {
+      "blockers": [],
+      "id": "001",
+      "order": 1,
+      "phase": "ready_to_close",
+      "repositoryStatus": "3-in-progress"
+    }
+  ]
+}

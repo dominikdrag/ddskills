@@ -1,0 +1,103 @@
+{
+  "assignments": [
+    {
+      "agent": "/root/ticket_001/worker",
+      "deliverable": "Implement ticket 001",
+      "dependsOn": [],
+      "ownership": [
+        {
+          "kind": "path",
+          "value": "Sources/Feature.swift"
+        }
+      ],
+      "recipient": "/root/ticket_001",
+      "role": "worker",
+      "status": "done",
+      "ticket": "001"
+    },
+    {
+      "agent": "/root/ticket_001/acceptance",
+      "deliverable": "Audit ticket 001 closure",
+      "dependsOn": [
+        "/root/ticket_001/worker"
+      ],
+      "ownership": [],
+      "recipient": "/root",
+      "role": "acceptance-checker",
+      "status": "done",
+      "ticket": "001"
+    }
+  ],
+  "eventLog": "events.jsonl",
+  "evidence": {
+    "001": {
+      "actions": [
+        {
+          "authorized": true,
+          "name": "ticket-status",
+          "performed": true,
+          "required": true
+        }
+      ],
+      "appleLane": {
+        "released": true,
+        "required": true
+      },
+      "checks": [
+        {
+          "executedTests": 7,
+          "exitCode": 0,
+          "location": "evidence/focused-tests.log",
+          "name": "focused-tests",
+          "required": true,
+          "requiresExecutedTests": true
+        }
+      ],
+      "criteria": [
+        {
+          "checked": true,
+          "id": "AC1",
+          "location": "evidence/acceptance.json",
+          "observation": "The expected projection was observed"
+        }
+      ],
+      "notes": {
+        "materialOmissions": [],
+        "reviewed": true
+      },
+      "runtime": {
+        "binary": "Feature.app",
+        "complete": true,
+        "device": "SIMULATOR-UDID",
+        "laneOwned": true,
+        "location": "evidence/runtime.json",
+        "required": true,
+        "scenario": "ticket-001"
+      },
+      "scope": {
+        "reviewed": true,
+        "unrelatedChanges": false
+      },
+      "snapshots": {
+        "clean": true,
+        "compared": true,
+        "inspected": true,
+        "location": "evidence/snapshots",
+        "recorded": true,
+        "required": true
+      },
+      "unauthorizedActions": []
+    }
+  },
+  "runId": "fixture-successful-completion",
+  "schemaVersion": 1,
+  "tickets": [
+    {
+      "blockers": [],
+      "id": "001",
+      "order": 1,
+      "phase": "ready_to_close",
+      "repositoryStatus": "4-done"
+    }
+  ]
+}

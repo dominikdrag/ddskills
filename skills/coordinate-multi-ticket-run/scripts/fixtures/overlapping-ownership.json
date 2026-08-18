@@ -1,0 +1,47 @@
+{
+  "assignments": [
+    {
+      "agent": "/root/ticket_001/worker_a",
+      "deliverable": "Implement the feature model",
+      "dependsOn": [],
+      "ownership": [
+        {
+          "kind": "path",
+          "value": "Sources/Feature"
+        }
+      ],
+      "recipient": "/root/ticket_001",
+      "role": "worker",
+      "status": "active",
+      "ticket": "001"
+    },
+    {
+      "agent": "/root/ticket_001/worker_b",
+      "deliverable": "Implement model persistence",
+      "dependsOn": [],
+      "ownership": [
+        {
+          "kind": "path",
+          "value": "Sources/Feature/Model.swift"
+        }
+      ],
+      "recipient": "/root/ticket_001",
+      "role": "worker",
+      "status": "pending",
+      "ticket": "001"
+    }
+  ],
+  "eventLog": "events.jsonl",
+  "evidence": {},
+  "runId": "fixture-overlapping-ownership",
+  "schemaVersion": 1,
+  "tickets": [
+    {
+      "blockers": [],
+      "id": "001",
+      "order": 1,
+      "phase": "coordinating",
+      "repositoryStatus": "3-in-progress"
+    }
+  ]
+}

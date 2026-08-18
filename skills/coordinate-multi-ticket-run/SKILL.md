@@ -1,151 +1,84 @@
 ---
 name: coordinate-multi-ticket-run
 description: >-
-  Coordinate an approved dependency-ordered set of local implementation tickets to completion in one Codex thread. The invoking thread acts as
-  the run coordinator while delegating to disposable GPT-5.6 Sol High ticket coordinators and fresh role-specific leaf agents, with persistent
-  external state, evidence-backed acceptance audits, and blocked/dead-agent recovery. Use when the user asks Codex to implement multiple approved
-  tickets end to end from a specification and local ticket graph. Do not use to design the specification, create the tickets, or execute one
-  isolated ticket.
+  Coordinate an approved dependency-ordered set of local implementation tickets to completion in one Codex thread. Use a deterministic workflow
+  state for graph scheduling, assignment ownership, evidence gates, recovery, and truthful closure while the invoking thread delegates fresh
+  role-specific agents. Use when the user asks Codex to implement multiple approved tickets end to end from a specification and local ticket graph.
+  Do not use to design the specification, create tickets, or execute one isolated ticket.
 ---
 
 # Coordinate Multi-Ticket Run
 
-Walk an approved local ticket graph to its truthful stopping condition without accumulating ticket-level implementation context at the top.
-The invoking thread or agent is the run coordinator: keep it with the user and give each ticket a fresh end-to-end coordinator.
+Walk an approved ticket graph to its truthful stopping condition. Keep the invoking thread as run coordinator and give each ticket a fresh end-to-end
+coordinator. Use the bundled workflow engine for deterministic decisions; retain semantic judgment, permissions, collaboration calls, and user
+communication in the agents.
 
-## Establish the run contract
+## Establish the run
 
-1. Resolve the current Git root. Do not require or embed an absolute repository path.
-2. Identify the specification and complete ticket set from the user's request or current repository context. Do not create a separate run brief.
-3. Read the repository's `AGENTS.md`, rule dispatcher, routed workflow/tracker/commit/testing/QA rules, domain glossary, specification, ticket schema,
-   and definition of done. Repository guidance overrides this skill.
-4. Resolve the evidence location from, in order: an explicit user or specification path, repository guidance, or an existing feature convention.
-   If none exists, choose a task-scoped local location. Keep it outside the worktree or verify it is ignored, then record it in the implementation
-   notes.
-5. Determine whether the user or active repository workflow authorizes commits, ticket-status changes, worklog changes, notes commits, worktrees, and
-   external actions. Do not infer one kind of authority from another.
-6. Use `$maintain-implementation-notes` before the first implementation edit. The notes page is part of the run's persistent state.
+1. Resolve the Git root and inspect the current worktree.
+2. Identify the approved specification and complete ticket set. Do not create a separate run brief.
+3. Read `AGENTS.md`, its dispatcher, routed workflow/tracker/commit/testing/QA rules, domain glossary, ticket schema, and definition of done. Repository
+   guidance overrides this skill.
+4. Resolve the evidence location from explicit user/specification guidance, repository guidance, or existing convention. Otherwise choose a
+   task-scoped location outside the worktree or verify it is ignored.
+5. Determine separate authority for commits, ticket/worklog/notes changes, worktrees, and external actions. Never infer one from another.
+6. Use `$maintain-implementation-notes` before the first implementation edit.
+7. Read [references/workflow-state.md](references/workflow-state.md). Create `<evidence>/run.json` as the normalized projection of the actual tickets,
+   repository statuses, assignments, and evidence. Repository artifacts remain authoritative facts; the workflow state owns deterministic orchestration.
+8. Resolve this skill's directory and run `python3 <skill-dir>/scripts/workflow.py validate --state <evidence>/run.json`.
 
-If the specification, tickets, blockers, or acceptance criteria are not stable enough to execute, stop and request the missing decision. This skill
-executes an approved graph; it does not silently redesign one.
+Stop for a missing product decision when the graph, blockers, or acceptance criteria are not stable enough to execute. This skill executes an
+approved graph; it does not silently redesign one.
 
-## Use the prescribed topology
+## Use the agent topology
 
-Do not spawn a separate run coordinator or assign a model or reasoning effort to it. The invoking thread already owns that role and retains its
-current configuration.
+Do not spawn another run coordinator or change the invoking agent's configuration. Read the configured concurrency capacity and keep one fresh ticket
+coordinator alive at a time. At the default four-agent capacity, reserve one slot for the invoking agent, one for the ticket coordinator, and at most
+two for useful non-overlapping leaves. Serialize work when capacity, repository ownership, Apple tooling, or device ownership requires it; shell
+processes do not consume agent slots.
 
-Use `model: "gpt-5.6-sol"` for every delegated agent and assign effort where ambiguity lives. Translate the human-facing labels to callable values:
-Sol Light is `reasoning_effort: "low"`, Sol Medium is `"medium"`, and Sol High is `"high"`. Never pass `"light"` as a reasoning-effort value.
+Read [references/role-contracts.md](references/role-contracts.md) before the first spawn. Use its exact model, effort, fresh-context, ownership,
+authority, messaging, and no-leaf-delegation contracts. Do not fill concurrency without independent work.
 
-| Delegated role | Label and callable effort | Responsibility |
-| --- | --- | --- |
-| Ticket coordinator | Sol High / `"high"`, fresh | Own one ticket end to end, including delegated work and authorized closure. |
-| Scout | Sol Light / `"low"`, fresh, read-only | Answer one bounded codebase, rule, test, scenario, or blast-radius question. |
-| Worker | Sol Medium / `"medium"`, fresh | Implement one routine slice on explicitly owned files. |
-| Complex worker | Sol High / `"high"`, fresh | Implement a wide seam, projection/engine core, migration, or tricky tests. |
-| Reviewer | Sol Medium / `"medium"`, fresh, read-only | Review repository standards and specification/ticket acceptance. |
-| QA worker | Sol Light / `"low"`, fresh | Run the repository's device or visual-verification flow and produce evidence. |
-| Acceptance checker | Sol Light / `"low"`, fresh, read-only | Audit ticket closure against evidence and repository state. |
+The run coordinator owns `run.json` between tickets. The active ticket coordinator may update assignments and evidence during its ticket. Leaves never
+edit the shared state, implementation notes, ticket status, or another agent's evidence.
 
-Read the configured per-thread concurrency capacity; it defaults to four agents including the invoking agent and every delegated agent. At the
-default:
+Before every spawn:
 
-```text
-[invoking agent] [ticket coordinator] [leaf] [leaf]
-```
+1. Add the complete assignment to `run.json`, including canonical target, role, deliverable, owned paths or seams, dependencies, recipient, and status.
+2. Run `workflow.py validate`.
+3. Spawn only when validation exits `0`; an ownership or dependency error blocks the spawn.
 
-Keep one ticket coordinator alive at a time. With fewer than four slots, serialize leaves. With four slots, the ticket coordinator may run two useful,
-non-overlapping leaves. With more than four, it may add independent scouts or workers when their ownership and dependencies are explicit. Do not fill
-capacity without useful independent work. Shell processes do not consume agent slots, but overlapping repository, workspace, DerivedData, device, or
-file ownership still must be serialized.
+## Drive the workflow
 
-Every leaf must receive `fork_turns: "none"`, a self-contained assignment, and this boundary:
+Run `workflow.py next` and obey its compact action:
 
-> Complete this assignment directly. Do not spawn other agents. Your parent's delegation instructions apply only to your parent.
+- `spawn_ticket_coordinator`: transition the named ticket to `coordinating`, then spawn it with the role contract.
+- `wait_ticket_coordinator`: stay available to the user and wait or forward relevant direction.
+- `spawn_acceptance_checker`: spawn a fresh read-only checker after transitioning the ticket to `acceptance`.
+- `return_acceptance_gaps`: send the named gaps to the live coordinator and transition only through an allowed follow-up phase.
+- `reject_closure`: keep the ticket open and repair the reported evidence or state gaps.
+- `close_ticket`: inspect the actual scoped diff or commits, confirm unrelated dirty state was preserved, and corroborate acceptance with observations;
+  then transition to `closed`, where the engine rechecks every closure gate.
+- `respawn_ticket_coordinator`: use the returned recovered state plus the recovered-coordinator role addendum.
+- `run_blocked`: record blockers in implementation notes and ask one concise question only when user input can unblock work.
+- `run_complete`: perform the final definition-of-done audit and report completion.
+- `invalid_state`: fix the state or source-artifact projection before any further spawn or closure.
 
-Higher reasoning effort does not grant delegation authority. A Sol High complex worker remains a leaf unless its assignment explicitly promotes it;
-under this topology, only the ticket coordinator delegates ticket work.
+When a coordinator finishes implementation, transition to `acceptance`. A fresh acceptance checker must inspect the actual ticket, run state, evidence,
+notes, tests, diff or commits, repository state, and Apple lane release. Transition a failing audit to `gap`; transition a passing audit to
+`ready_to_close` only after recording its observations. Plain `validate` proves structure only; the checker must use `validate --closure <ticket>`.
 
-Read [references/role-contracts.md](references/role-contracts.md) before spawning the first ticket coordinator or leaf.
+When Apple build, test, Simulator, Device Hub, Playbook snapshot, or runtime QA is required, use `$run-apple-verification-loop`. Reserve the lane before
+Apple work and release it on success, failure, or interruption.
 
-## Coordinate active agents
+## Preserve recoverable truth
 
-Before spawning any leaf, maintain an active-assignment ledger under the ticket evidence location, normally `plan.md`, with:
+Keep ticket/worklog state, implementation notes, scoped commits, raw logs, screenshots, `run.json`, its JSONL events, and Apple lane manifests as the
+recoverable run. Use `workflow.py interrupt` when an active coordinator dies, then use `next` or `recover`; never reconstruct status from context or a
+`DONE` label.
 
-```text
-agent · role · question or deliverable · owned files or seams · depends on · message recipient · status
-```
-
-Check the ledger before every spawn to prevent duplicate investigation or overlapping writes. Update it when ownership, dependencies, or status change
-so an interrupted coordinator can recover the live topology.
-
-Name canonical collaborator targets and information dependencies in leaf assignments. When a scout, reviewer, QA worker, or worker finds information
-needed by a named active collaborator, it should message that collaborator directly and notify the ticket coordinator instead of waiting for report
-relay. Direct messages transfer information only: they do not change file ownership, task scope, approval authority, commit authority, or the leaf
-boundary. Every agent still summarizes material peer messages in its final report.
-
-## Keep state outside agent context
-
-Treat these artifacts as the recoverable run state:
-
-- ticket status, blockers, and acceptance checkboxes;
-- the implementation-notes Status and Open Questions sections;
-- worklog state and session history when the repository uses them;
-- scoped commits and `git log` when commits are authorized;
-- per-ticket evidence, raw logs, and screenshots;
-- the active-assignment ledger and peer-message dependencies;
-- active Apple verification lane manifests and explicit release state.
-
-Re-derive the frontier from these artifacts after any interruption. Never reconstruct status from memory or an agent's `DONE` label alone.
-
-## Run one ticket
-
-1. Compute the frontier: tickets not done whose blockers are all done. Honor the repository's exact status vocabulary.
-2. Select the lowest-numbered frontier ticket unless the user or specification defines another priority.
-3. Spawn one GPT-5.6 Sol High ticket coordinator with `reasoning_effort: "high"` and `fork_turns: "none"` using the ticket-coordinator contract.
-   Point it directly at the specification, ticket set, selected ticket, notes page, and resolved evidence location.
-4. Stay available to the user. Forward new direction affecting the active ticket to its coordinator; do not start a second coordinator.
-5. Require the ticket coordinator to orient, plan thin slices, maintain the active-assignment ledger, delegate bounded leaves, route direct dependency
-   messages, implement, run focused gates, obtain fresh review, maintain implementation notes, and return the bounded report from the role contract.
-6. When the ticket needs Tuist, Xcode, Simulator, Device Hub, Playbook snapshots, or Apple runtime QA, require the ticket coordinator or QA worker to
-   use `$run-apple-verification-loop`. Do not duplicate its lane commands here. Lane reservation precedes Apple work; release is required on success,
-   failure, or interruption.
-7. Spawn a fresh GPT-5.6 Sol Light acceptance checker with `reasoning_effort: "low"`. It must inspect the ticket, assignment ledger, evidence, notes,
-   actual test execution, changed scope, repository state, and Apple lane release where applicable.
-8. Perform the run coordinator's bounded boundary audit: inspect the ticket's scoped diff or commits, confirm unrelated dirty state was preserved,
-   and verify the acceptance check is backed by observations rather than summaries.
-9. Send any gap to the still-live ticket coordinator. Wait for its focused follow-up and rerun only the affected acceptance checks.
-10. Only after the audit passes, perform authorized ticket/worklog/notes bookkeeping. Ticket coordinators own green implementation commits when
-    authorized; leaves never commit; the run coordinator commits only missing bookkeeping or notes updates.
-11. Report the ticket, hashes or changed scope, evidence location, open questions, and next frontier to the user in two or three lines. Repeat.
-
-## Handle blockers and interrupted agents
-
-For a product, privacy, architecture, release-scope, external-approval, or otherwise reserved decision:
-
-1. Record the question through `$maintain-implementation-notes`, including the affected ticket and recommended default.
-2. Ask the user one concise question.
-3. Continue with another frontier ticket when one exists.
-4. Stop only when the frontier is empty or every remaining ticket is blocked on the user or external state.
-
-For a dead or interrupted ticket coordinator:
-
-1. Inspect ticket state, notes, the active-assignment ledger, evidence, `git status`, and authorized commits.
-2. Record exactly what landed and what remains; do not infer completion.
-3. Respawn the same ticket with a fresh GPT-5.6 Sol High coordinator and the recovered-state addendum from the role contracts.
-
-## Enforce truthful closure
-
-Reject closure when any of the following holds:
-
-- a checked criterion lacks a named observation;
-- a required test did not execute, executed zero tests, or was skipped behind a gate;
-- snapshot evidence skipped record, rendered inspection, or clean comparison;
-- runtime evidence is empty, loading, partial, on the wrong binary/scenario/device, or from an unowned lane;
-- an Apple verification lane remains leased;
-- the assignment ledger shows duplicate, overlapping, or unresolved ownership;
-- the scoped diff or commit contains unrelated work;
-- the notes page omits a material interpretation, deviation, tradeoff, blocker, or repeated-work candidate;
-- a status, worklog transition, commit, or external action lacks authority.
-
-The whole run ends only when the specification's definition of done is observed, or when every remaining item is explicitly blocked and recorded.
+Only perform authorized bookkeeping after acceptance and the boundary audit pass. Ticket coordinators own authorized green implementation commits;
+leaves never commit, and the run coordinator commits only missing notes or bookkeeping. Report each ticket in two or three lines with changed scope
+or hashes, evidence location, open questions, and the next frontier. End only when the specification's definition of done is observed or every
+remaining ticket is explicitly blocked and recorded.

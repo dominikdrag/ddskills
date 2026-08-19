@@ -1,4 +1,4 @@
 interface:
   display_name: "Orchestrate Implementation Run"
-  short_description: "Delegate focused implementation work simply"
-  default_prompt: "Use $orchestrate-implementation-run to coordinate this approved implementation with focused agents and evidence-backed verification."
+  short_description: "Coordinate implementation through focused leaves"
+  default_prompt: "Use $orchestrate-implementation-run to run this approved feature as a hub-and-spoke team with one user-facing coordinator and focused leaf agents."

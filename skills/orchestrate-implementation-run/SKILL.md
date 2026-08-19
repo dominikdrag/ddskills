@@ -1,33 +1,36 @@
 ---
 name: orchestrate-implementation-run
 description: >-
-  Coordinate approved local implementation work through focused multi-agent delegation in one Codex thread. Use when a specification, feature, or
-  change has independent discovery or implementation slices and the invoking agent should stay available to the user while GPT-5.6 Sol scouts and
-  workers execute bounded assignments. Maintain a durable implementation-notes ledger and use isolated Apple verification lanes when Apple tooling,
-  simulators, snapshots, or runtime QA are in scope. Do not use for design-only work, a tiny isolated edit, or unapproved external actions.
+  Orchestrate an approved feature or specification as a hub-and-spoke team. Use when it contains several bounded discovery or implementation slices
+  that can run independently while one coordinator stays user-facing. For an approved dependency-ordered ticket graph, use
+  `$coordinate-multi-ticket-run`.
 ---
 
 # Orchestrate Implementation Run
 
-Keep the invoking agent as the only coordinator. Delegate substantive, non-overlapping work to leaf agents, integrate their results, and retain
-approvals and final judgment in the user-facing thread. Do not create workflow engines, ticket coordinators, or extra run-state files unless the
-repository already requires them.
+Use a hub-and-spoke topology: keep the invoking agent as coordinator and every delegated agent as a leaf. Keep the coordinator user-facing and make it
+the sole owner of integration, approvals, implementation notes, and closure. Use the coordinator's task plan as the orchestration state unless the
+repository contract owns another state artifact.
 
-## Establish the run
+Run four coordinator phases in order: **Orient → Assign leaves → Implement and integrate → Verify and close**. Supporting skills satisfy steps inside
+a phase; only these four completion gates advance the run.
+
+## 1. Orient
 
 1. Read the repository's `AGENTS.md`, routed rules, specification or request, relevant source, tests, and current worktree state.
-2. Identify acceptance observations, independent slices, dependencies, and authority for edits, commits, status changes, worktrees, and external
-   actions. Do not infer one authority from another.
-3. Use `$maintain-implementation-notes` before the first implementation edit. The invoking coordinator is the single notes writer; delegated agents
-   return proposed entries instead of editing the ledger.
-4. Keep a short working plan in the coordinator's task plan. Name each active agent, its deliverable, owned paths or seam, dependencies, and status.
-   Do not create a second planning artifact unless repository guidance requires one.
-5. Stop for a missing product, privacy, architecture, or release decision that would materially change the work. Record the question and recommended
-   default in the implementation notes before asking the user.
+2. Build an acceptance map from every requested outcome to a checkable observation. Propose independent slices; name known dependencies and unknowns.
+3. Resolve edit, commit, status, worktree, device, UI, and external-action authority separately.
+4. Resolve the repository's implementation-notes convention and destination. Keep the coordinator as its single writer; leaves return proposed
+   entries.
+5. Route each material uncertainty to a read-only scout or record it with its affected slice, impact, and recommended default. Ask the user when the
+   answer changes product, privacy, architecture, or release scope.
 
-## Delegate with three leaf roles
+**Complete orientation when:** every requested outcome has an acceptance observation; every proposed slice has its dependencies and unknowns named;
+authority and notes ownership are explicit; and every material uncertainty is routed to a scout or recorded as a blocking question.
 
-Keep the coordinator's current model and reasoning effort. For delegated work, use one model family and place reasoning where the ambiguity is:
+## 2. Assign leaves
+
+Use one model family and place reasoning where the ambiguity is:
 
 | Role | Default spawn configuration | Use for |
 | --- | --- | --- |
@@ -35,62 +38,55 @@ Keep the coordinator's current model and reasoning effort. For delegated work, u
 | Worker | `model: "gpt-5.6-sol"`, `reasoning_effort: "medium"`, `fork_turns: "none"` | One routine implementation slice with explicit ownership and focused checks. |
 | Smart worker | `model: "gpt-5.6-sol"`, `reasoning_effort: "high"`, `fork_turns: "none"` | One difficult or ambiguous implementation seam requiring deeper judgment. |
 
-All delegated agents are leaves. End every assignment with:
+Default to fresh context. Inherit context only when a material conversation decision cannot be summarized safely. End every assignment with the leaf
+boundary:
 
-> Complete this assignment directly. Do not spawn other agents; your parent's delegation instructions apply only to your parent.
+> Complete this assignment directly and return results to your parent. Remain a leaf: do not spawn other agents.
 
-Default to fresh context. Use inherited context only when the assignment depends on material conversation decisions that cannot be summarized safely;
-still include the leaf boundary. Every fresh-context assignment must state:
+Give every leaf one self-contained assignment containing:
 
-- the concrete question or deliverable and success condition;
-- owned files or seam, read-only or edit scope, and forbidden actions;
-- repository root, relevant rules, specification sections, and acceptance criteria;
-- known dependencies and canonical teammate targets;
-- required checks, evidence location, and return format;
-- exact commit, status-change, device, and external-action authority;
-- the requirement to preserve unrelated dirty state and propose notes entries to the coordinator.
+- deliverable and checkable completion criterion;
+- repository root, relevant rules, specification sections, and acceptance observations;
+- owned files or seam, read-only or edit scope, and exact authority;
+- dependencies, canonical teammate recipients, required checks, evidence location, and return format;
+- preservation of unrelated dirty state and proposed implementation-notes entries.
 
-At the default four-agent capacity, the coordinator may run three independent leaves. Use fewer when work overlaps. Do not fill slots for appearance,
-duplicate investigations, or assign concurrent writes to the same files or seam.
+Name information dependencies. Have a leaf message the named teammate and coordinator when it produces or needs dependency information, then summarize
+material peer messages in its final report. Messages carry information; the original ownership and authority remain unchanged.
 
-## Let the team communicate
+Read the configured concurrency capacity. At four slots, run the coordinator and up to three independent leaves. Spawn only work with disjoint write
+ownership.
 
-Name information dependencies in assignments. When an agent produces or needs information for a named teammate, have it message that teammate
-directly and notify the coordinator. Direct messages transfer information only; they do not expand ownership, authority, or scope. Require every
-agent to summarize material peer messages in its final report.
+**Complete assignment when:** every active leaf has the full assignment contract, all write ownership is disjoint, every dependency has a named
+recipient, and the coordinator remains available to the user.
 
-The coordinator remains available to the user while agents work. Forward new direction to affected agents, cancel or narrow stale assignments, and
-avoid starting overlapping replacement work.
-
-## Implement and integrate
+## 3. Implement and integrate
 
 1. Send independent read-only scouts in parallel when discovery can reduce implementation risk.
-2. Convert findings into the smallest useful worker assignments with disjoint ownership. Use a smart worker only where deeper reasoning pays for
-   itself.
-3. Inspect actual edits, test output, and peer messages as agents finish. A `DONE` label or successful process exit is not acceptance evidence.
-4. Integrate across owned seams in the coordinator. Return focused gaps to the owning agent while it is available; otherwise inspect landed work
-   before assigning only the remaining scope to a replacement.
-5. Update implementation notes after each material judgment and implementation slice. Record decisions, deviations, trade-offs, open questions,
-   repeated-work candidates, status, and observed verification evidence through `$maintain-implementation-notes`.
+2. Before the first implementation edit, invoke `$maintain-implementation-notes` to create or reuse the resolved page.
+3. Convert stable findings into the smallest useful worker assignments. Use a smart worker for a difficult or ambiguous seam.
+4. Inspect actual edits, underlying check output, and peer messages as each leaf finishes. Return focused gaps to the owning leaf while it is live.
+5. Before replacement, inspect landed work and assign only the remaining scope.
+6. Update implementation notes after each material judgment and completed slice.
 
-Delegation never transfers user approval. By default, leaves do not commit, update tickets or worklogs, operate external systems, or take
-consequential UI actions. Grant only authority already provided by the user or repository contract, and state it explicitly in the assignment.
+**Complete integration when:** every slice is integrated and inspected or explicitly blocked; every material peer message is resolved; all focused
+checks have observed results; and implementation notes reflect the current decisions, evidence, and blockers.
 
-## Verify with owned evidence
+## 4. Verify and close
 
 Run the smallest relevant checks first and broaden only when the changed contract crosses boundaries. Assign one owner per verification resource and
-keep raw results needed to prove acceptance.
+retain the underlying results.
 
-For Tuist, Xcode, `xcodebuild`, Simulator, Device Hub, Playbook snapshots, or Apple runtime QA, use `$run-apple-verification-loop`. Reserve exact lanes
-before Apple work, use isolated DerivedData and evidence, follow record-inspect-compare for snapshots, and release every lane on success, failure, or
-interruption. Do not let generic test summaries, skipped gates, or zero-test runs stand as proof.
+For any Tuist, Xcode, `xcodebuild`, Simulator, Device Hub, Playbook snapshot, or Apple runtime-QA branch, invoke `$run-apple-verification-loop`.
+Require its evidence and lane-release completion criteria before closure.
 
-Before completion, the coordinator must:
+Close against the acceptance map:
 
 - inspect the scoped diff and current worktree, preserving unrelated changes;
 - map every acceptance criterion to an observed result or explicit blocker;
-- confirm required tests executed and Apple lanes were released;
-- validate the implementation-notes page through `$maintain-implementation-notes`;
-- report the outcome, changed scope or authorized commits, evidence locations, unresolved questions, and exact verification limits.
+- confirm every required test executed and every Apple lane was released;
+- validate the implementation-notes page with `$maintain-implementation-notes`;
+- report changed scope or authorized commits, evidence locations, blockers, and exact verification limits.
 
-End when acceptance is observed or all remaining work is explicitly blocked and recorded. Do not manufacture closure from agent summaries.
+**Complete the run when:** every acceptance criterion has an observed result or recorded blocker, every required resource is released, the scoped
+worktree and notes are current, and no active assignment remains unresolved.

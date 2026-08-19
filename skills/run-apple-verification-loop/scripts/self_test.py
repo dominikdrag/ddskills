@@ -417,6 +417,32 @@ def main() -> int:
                 "structured device-operation evidence was not preserved"
             )
 
+        launch_json = evidence / "launch.json"
+        run(
+            sys.executable,
+            str(RUN_DEVICE),
+            "--owner",
+            "owner-a",
+            "--device-id",
+            DEVICE_A,
+            "--log",
+            str(evidence / "launch.raw.log"),
+            "--",
+            "xcrun",
+            "devicectl",
+            "device",
+            "process",
+            "launch",
+            "--device",
+            DEVICE_A,
+            "--terminate-existing",
+            "com.example.App",
+            "--json-output",
+            str(launch_json),
+            env=env,
+            expected=0,
+        )
+
         name_target = install_command.copy()
         name_target[name_target.index(DEVICE_A, name_target.index("--device"))] = (
             "Lane A"

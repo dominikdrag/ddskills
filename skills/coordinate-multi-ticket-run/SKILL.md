@@ -2,7 +2,7 @@
 name: coordinate-multi-ticket-run
 description: >-
   Coordinate approved local ticket graphs end to end. Use when implementation starts from an existing specification with multiple dependency-ordered
-  tickets and needs delegated delivery, evidence-gated acceptance, or interrupted-run recovery. Single-ticket work uses its focused implementation workflow.
+  tickets and needs delegated delivery, evidence-gated acceptance, or interrupted-run recovery.
 ---
 
 # Coordinate Multi-Ticket Run

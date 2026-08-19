@@ -1,9 +1,8 @@
 ---
 name: orchestrate-implementation-run
 description: >-
-  Orchestrate an approved feature or specification as a hub-and-spoke team. Use when it contains several bounded discovery or implementation slices
-  that can run independently while one coordinator stays user-facing. For an approved dependency-ordered ticket graph, use
-  `$coordinate-multi-ticket-run`.
+  Orchestrate an approved feature or specification as a lightweight hub-and-spoke team. Use when it contains several bounded discovery or
+  implementation slices that can run independently while one coordinator stays user-facing and the task plan is sufficient orchestration state.
 ---
 
 # Orchestrate Implementation Run

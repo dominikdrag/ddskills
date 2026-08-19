@@ -1,4 +1,4 @@
 interface:
   display_name: "Orchestrate Implementation Run"
-  short_description: "Coordinate implementation through focused leaves"
-  default_prompt: "Use $orchestrate-implementation-run to run this approved feature as a hub-and-spoke team with one user-facing coordinator and focused leaf agents."
+  short_description: "Land focused implementation in reviewable commits"
+  default_prompt: "Use $orchestrate-implementation-run to run this approved feature as a hub-and-spoke team and land checked slices as small, reviewable commits."

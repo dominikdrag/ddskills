@@ -13,14 +13,34 @@ from pathlib import Path
 import lane
 
 
-def option_value(command: list[str], option: str) -> str | None:
+def option_values(command: list[str], option: str) -> list[str]:
+    values: list[str] = []
     for index, token in enumerate(command):
         if token == option and index + 1 < len(command):
-            return command[index + 1]
+            values.append(command[index + 1])
         prefix = f"{option}="
         if token.startswith(prefix):
-            return token[len(prefix) :]
-    return None
+            values.append(token[len(prefix) :])
+    return values
+
+
+def required_option(command: list[str], option: str) -> str:
+    values = option_values(command, option)
+    if len(values) != 1:
+        raise ValueError(f"command must have exactly one {option}")
+    return values[0]
+
+
+def destination_fields(destination: str) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    for component in destination.split(","):
+        key, separator, value = component.partition("=")
+        if not separator or not key or key in fields:
+            raise ValueError(
+                "-destination must use unique comma-separated key=value fields"
+            )
+        fields[key] = value
+    return fields
 
 
 def inside(path: Path, directory: Path) -> bool:
@@ -33,20 +53,29 @@ def validate(args: argparse.Namespace, lease: dict[str, object]) -> list[str]:
         command = command[1:]
     if not command:
         raise ValueError("missing command after --")
+    if Path(command[0]).name != "xcodebuild":
+        raise ValueError("guarded command must be xcodebuild")
 
-    destination = option_value(command, "-destination")
-    expected_destination = f"id={args.udid}"
-    if destination is None or "platform=iOS Simulator" not in destination or expected_destination not in destination:
-        raise ValueError(f"command must target platform=iOS Simulator,{expected_destination}")
-    if "name=" in destination:
-        raise ValueError("name-based destinations are forbidden in an owned lane")
+    destination = required_option(command, "-destination")
+    fields = destination_fields(destination)
+    expected_platform = str(lease["platform"])
+    expected_identifier = str(lease["destinationIdentifier"])
+    if set(fields) != {"platform", "id"}:
+        raise ValueError("-destination must contain only exact platform and id fields")
+    if (
+        fields.get("platform") != expected_platform
+        or fields.get("id") != expected_identifier
+    ):
+        raise ValueError(
+            f"command must target platform={expected_platform},id={expected_identifier}"
+        )
 
-    derived_data = option_value(command, "-derivedDataPath")
-    if derived_data is None or Path(derived_data).expanduser().resolve() != Path(str(lease["derivedData"])):
+    derived_data = required_option(command, "-derivedDataPath")
+    if Path(derived_data).expanduser().resolve() != Path(str(lease["derivedData"])):
         raise ValueError(f"-derivedDataPath must equal {lease['derivedData']}")
 
-    workspace = option_value(command, "-workspace")
-    if workspace is None or Path(workspace).expanduser().resolve() != Path(str(lease["workspace"])):
+    workspace = required_option(command, "-workspace")
+    if Path(workspace).expanduser().resolve() != Path(str(lease["workspace"])):
         raise ValueError(f"-workspace must equal {lease['workspace']}")
     return command
 
@@ -57,26 +86,37 @@ def test_count(output: str) -> int:
         r"Test run with\s+(\d+)\s+tests?\s+passed",
         r"\b(\d+)\s+tests?\s+passed\b",
     )
-    counts = [int(match) for pattern in patterns for match in re.findall(pattern, output)]
+    counts = [
+        int(match) for pattern in patterns for match in re.findall(pattern, output)
+    ]
     return max(counts, default=0)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--owner", required=True)
-    parser.add_argument("--udid", type=lane.normalized_udid, required=True)
+    parser.add_argument(
+        "--device-id",
+        "--udid",
+        dest="device_identifier",
+        type=lane.uuid_argument,
+        required=True,
+    )
     parser.add_argument("--log", required=True)
     parser.add_argument("--require-executed-tests", action="store_true")
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
 
-    path = lane.lease_path(args.udid)
+    path = lane.lease_path(args.device_identifier)
     if not path.exists():
-        print(f"error: no active lease for {args.udid}", file=sys.stderr)
+        print(f"error: no active lease for {args.device_identifier}", file=sys.stderr)
         return 2
     lease = lane.read_lease(path)
     if lease["owner"] != args.owner:
-        print(f"error: {args.udid} is owned by {lease['owner']}", file=sys.stderr)
+        print(
+            f"error: {args.device_identifier} is owned by {lease['owner']}",
+            file=sys.stderr,
+        )
         return 2
 
     log_path = Path(args.log).expanduser().resolve()
@@ -86,8 +126,10 @@ def main() -> int:
         return 2
 
     try:
+        lane.confirm_leased_device(lease)
+        lane.require_device_hub_confirmation(lease, "destination")
         command = validate(args, lease)
-    except ValueError as error:
+    except (OSError, RuntimeError, ValueError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
 
@@ -119,7 +161,10 @@ def main() -> int:
 
     output = "".join(captured)
     if return_code == 0 and args.require_executed_tests and test_count(output) == 0:
-        print("error: command exited zero but no executed tests were found", file=sys.stderr)
+        print(
+            "error: command exited zero but no executed tests were found",
+            file=sys.stderr,
+        )
         return 86
     return return_code
 

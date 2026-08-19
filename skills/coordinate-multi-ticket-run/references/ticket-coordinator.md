@@ -1,7 +1,7 @@
 # Ticket Coordinator Contract
 
-Read this file and `references/role-policy.md` immediately before spawning a ticket coordinator. Use the ticket-coordinator runtime configuration and
-replace every placeholder in this assignment:
+Read this file and `references/role-policy.md` immediately before spawning a ticket coordinator. Use the ticket-coordinator runtime configuration,
+pass `fork_turns: "none"` explicitly, and replace every placeholder in this assignment:
 
 > Coordinate `<ticket-id>` from its current frontier to acceptance. Work in the current Git worktree. Read `AGENTS.md` and its dispatcher first, then
 > the routed rules and sources for this work. Read `<spec>`, the complete ticket set `<tickets>`, `<ticket>`, role policy `<role-policy>`, normalized state

@@ -1,7 +1,7 @@
 # Acceptance Checker Contract
 
-Read this file and `references/role-policy.md` only after a ticket reaches `acceptance`. Use the acceptance-checker runtime configuration and read-only
-authority. Replace every placeholder in this assignment:
+Read this file and `references/role-policy.md` only after a ticket reaches `acceptance`. Use the acceptance-checker runtime configuration, pass
+`fork_turns: "none"` explicitly, and preserve read-only authority. Replace every placeholder in this assignment:
 
 > Audit `<ticket>` using `<evidence>`, `<notes>`, normalized state `<state>`, workflow `<workflow>`, the coordinator report, actual diff or commits, and
 > current repository state. For every acceptance criterion, report its ticket marking, named observation, evidence location, and pass or gap. Confirm

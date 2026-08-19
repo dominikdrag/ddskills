@@ -1,7 +1,8 @@
 # Leaf Agent Contracts
 
 The ticket coordinator reads this file and `references/role-policy.md` only when delegation has independent, ownership-safe value. Add the shared
-delegation boundary and exactly one role addendum to a complete assignment. Validate the assignment ledger before spawning.
+delegation boundary and exactly one role addendum to a complete assignment. Validate the assignment ledger before spawning, then pass
+`fork_turns: "none"` explicitly.
 
 ## Common assignment
 

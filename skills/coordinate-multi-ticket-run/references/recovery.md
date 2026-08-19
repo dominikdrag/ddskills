@@ -1,7 +1,8 @@
 # Recovery Contract
 
-Read this file and `references/role-policy.md` only when `workflow.py next` returns `respawn_ticket_coordinator`. Spawn a fresh ticket coordinator with the
-standard ticket contract plus this addendum:
+Read this file and `references/role-policy.md` only when `workflow.py next` returns `respawn_ticket_coordinator`. Spawn a fresh ticket coordinator with
+`fork_turns: "none"`, the standard ticket contract, and this addendum. Reconstruct its task context from persisted artifacts and this self-contained
+assignment, never by inheriting the interrupted coordinator's conversation:
 
 Before the spawn gate, replace the interrupted coordinator's ledger identity with the fresh coordinator's canonical target while preserving its ticket,
 deliverable, ownership, dependencies, recipient, and interruption event. This is a takeover of one assignment, not a second overlapping assignment.

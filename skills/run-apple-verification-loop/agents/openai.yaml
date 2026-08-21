@@ -1,4 +1,4 @@
 interface:
   display_name: "Apple Verification Loop"
   short_description: "Run isolated, evidence-backed Apple verification"
-  default_prompt: "Use $run-apple-verification-loop to reserve an exact devicectl and Device Hub lane and verify this Apple-platform change."
+  default_prompt: "Use $run-apple-verification-loop to reserve an exact device lane and run proportional Apple-platform verification."

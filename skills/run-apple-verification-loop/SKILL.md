@@ -2,39 +2,36 @@
 name: run-apple-verification-loop
 description: >-
   Reserve and run isolated Apple-platform verification lanes across concurrent repositories or worktrees. Use for xcodebuild, Tuist,
-  simulated-device, physical-device, Device Hub, Computer Use-driven UI testing, Playbook snapshot, or runtime QA work that needs exact device
-  ownership, isolated DerivedData and evidence, guarded destinations, raw logs, record-inspect-compare, and explicit lane handoff.
+  simulated-device, physical-device, Device Hub, snapshot, or runtime QA work that needs exact device ownership, isolated DerivedData and evidence,
+  guarded commands, raw logs, record-inspect-compare, and explicit lane handoff.
 ---
 
 # Run Apple Verification Loop
 
-Use resource ownership instead of global serialization. Separate projects may verify at the same time when every lane owns distinct resources.
-Serialize only resources that overlap.
+Use deterministic guards for resource ownership and command targeting. Use judgment and fresh UI observation for claims that only Device Hub or the
+running app can prove.
 
 ## 1. Read the repository contract
 
 Load the repository's `AGENTS.md` and routed testing, workflow, and agent-QA rules. Repository commands and snapshot gates override generic examples
 here.
 
-Do not start Tuist, Xcode, Device Hub, or runtime work until the lane is reserved. Tuist generation mutates a checkout, so keep it inside the
-checkout's exclusive lane.
+Reserve the lane before Tuist generation, Xcode work, Device Hub interaction, or runtime work. Tuist generation mutates a checkout, so keep it inside
+the checkout's exclusive lane.
 
 ## 2. Discover and reserve an exact device
 
-List the iOS devices known to the selected Xcode and the current leases:
+List the selected Xcode's structured device inventory and current leases:
 
 ```sh
 python3 ~/.codex/skills/run-apple-verification-loop/scripts/lane.py list
 ```
 
-The helper uses structured `xcrun devicectl list devices` output and has no alternate discovery path. It labels each result `simulator` or
-`physical`. Treat its boot and connection fields as reported inventory only, not fresh readiness proof.
+The helper accepts only structured `xcrun devicectl list devices` output. Inventory boot and connection fields are descriptive snapshots, not fresh
+readiness proof. Choose an exact CoreDevice UUID; never substitute a display name. For a physical device, the lease separately records its hardware
+UDID as the Xcode destination ID.
 
-Choose the exact CoreDevice identifier UUID. A simulator normally uses that UUID as its Xcode destination ID. A physical device can have a
-different hardware UDID for Xcode; the lease manifest records both and builds the exact `xcodeDestination`. Never substitute a display name.
-
-Prefer separate test and runtime-QA devices. Use a dedicated canonical simulator for snapshots when the repository requires one. Reserve with a
-stable owner such as the Codex task ID:
+Reserve the device, workspace, DerivedData, and evidence paths with a stable owner such as the Codex task ID:
 
 ```sh
 python3 ~/.codex/skills/run-apple-verification-loop/scripts/lane.py reserve \
@@ -45,58 +42,28 @@ python3 ~/.codex/skills/run-apple-verification-loop/scripts/lane.py reserve \
   --repo "$PWD" \
   --workspace "$PWD/<App>.xcworkspace" \
   --derived-data "$PWD/<evidence-dir>/DerivedData" \
-  --evidence "$PWD/<evidence-dir>" \
-  --device-hub-window '<repo-or-task>-test'
+  --evidence "$PWD/<evidence-dir>"
 ```
 
-Reservation rechecks the UUID through `devicectl` and fails if the exact iOS device is absent, ambiguous, or has incomplete identity data. The
-Device Hub window value is a collision-resistant coordination label, not device proof.
+Add `--device-hub-window '<collision-resistant-label>'` only when the lane will interact with Device Hub. The label coordinates ownership; it does
+not prove an actual window, identifier, or state.
 
 The machine-global registry is `~/.codex/state/apple-verification-lanes`. Set `CODEX_APPLE_LANE_STATE` only for isolated registry tests. If a
-reservation collides, stop and coordinate. Never steal a lease, kill a foreign process, retarget a foreign device, or use another lane's Device Hub
-window.
+reservation collides, stop and coordinate. Never steal a lease, kill a foreign process, retarget a foreign device, or use another lane's resources.
 
-Save the manifest with the evidence and announce the repo/task, CoreDevice UUID, device kind, Xcode destination, workspace, DerivedData, Device Hub
-window, and evidence directory:
+Save the manifest with the task evidence:
 
 ```sh
 python3 ~/.codex/skills/run-apple-verification-loop/scripts/lane.py status \
   --device-id '<exact-CoreDevice-UUID>' --json | tee '<evidence-dir>/lane-manifest.json'
 ```
 
-## 3. Confirm Device Hub before destination work
+## 3. Run automated Xcode gates
 
-Device Hub is the required UI authority for boot or connection state, Xcode destination changes, and runtime UI ownership. Target the installed app
-through Computer Use as `com.apple.dt.Devices`. `devicectl` can report cached/best-available state and supports selected operations, but the installed
-command surface does not provide simulator boot/start control.
+Automated compile, test, and snapshot commands do not require a Device Hub UI read. Their authority comes from the exact lease, a live structured
+identity recheck, the guarded Xcode destination, isolated DerivedData, raw output, exit status, and executed-test evidence when applicable.
 
-Use `$computer-use` to fetch fresh accessibility state before every action. In the owned Device Hub window, verify an exact identifier from the
-lease manifest, perform any needed boot or device-preparation action, then fetch fresh state again. Generic labels such as `iPhone 17 Pro` are not proof.
-Prefer accessibility-element actions; use screenshots when accessibility data is incomplete or the claim is visual. Never reuse stale element
-indices.
-
-Only after fresh Device Hub state shows an exact identifier from the lease and the required state, record the destination confirmation:
-
-```sh
-python3 ~/.codex/skills/run-apple-verification-loop/scripts/lane.py confirm-device-hub \
-  --owner '<task-id>' \
-  --device-id '<exact-CoreDevice-UUID>' \
-  --device-hub-window '<repo-or-task>-test' \
-  --purpose destination \
-  --observed-device-id '<exact-visible-UUID-or-hardware-UDID>' \
-  --observed-state '<exact-visible-state>'
-```
-
-Reconfirm after every Xcode destination-picker change. If Computer Use cannot read the exact window, identifier, or current state, stop. Do not infer
-them from a screenshot, display name, or `devicectl`'s reported state.
-
-## 4. Generate and run focused gates
-
-Regenerate only when the repository contract requires it. Do not generate while another lane owns the same workspace.
-
-Start with the smallest relevant scheme. Read the guarded destination from the lease and run `xcodebuild` through the helper. It rechecks live
-`devicectl` identity, requires the Device Hub destination confirmation, rejects names and partial IDs, and enforces the exact workspace and isolated
-DerivedData:
+Read the destination from the lease and run `xcodebuild` through the guard:
 
 ```sh
 device_uuid='<exact-CoreDevice-UUID>'
@@ -104,7 +71,7 @@ evidence='<evidence-dir>'
 destination="$(python3 ~/.codex/skills/run-apple-verification-loop/scripts/lane.py status \
   --device-id "$device_uuid" --json | jq -r '.xcodeDestination')"
 
-python3 ~/.codex/skills/run-apple-verification-loop/scripts/run_gate.py \
+python3 ~/.codex/skills/run-apple-verification-loop/scripts/lane.py run-xcodebuild \
   --owner '<task-id>' \
   --device-id "$device_uuid" \
   --log "$evidence/<scheme>.raw.log" \
@@ -116,18 +83,15 @@ python3 ~/.codex/skills/run-apple-verification-loop/scripts/run_gate.py \
     -derivedDataPath "$evidence/DerivedData"
 ```
 
-Treat the underlying exit code and raw output as authoritative. A formatter summary, an exit-zero skipped gate, or a zero-test run is not proof.
-Broaden verification only when the changed contract crosses boundaries.
+Omit `--require-executed-tests` for a compile-only command. The guard accepts only `xcodebuild`, the exact platform and destination ID, the leased
+workspace, isolated DerivedData, and a log inside the evidence directory. Treat the underlying exit code and raw output as authoritative.
 
-## 5. Install, launch, and inspect runtime UI
+## 4. Run supported direct device operations
 
-Before runtime work, repeat the fresh Computer Use check and record a `runtime` Device Hub confirmation. Use the same confirmation command as above
-with `--purpose runtime`.
-
-For supported direct operations, use the guard so the exact leased CoreDevice UUID and structured evidence path cannot be replaced by a name:
+Use the same lease guard for supported direct operations:
 
 ```sh
-python3 ~/.codex/skills/run-apple-verification-loop/scripts/run_device.py \
+python3 ~/.codex/skills/run-apple-verification-loop/scripts/lane.py run-devicectl \
   --owner '<task-id>' \
   --device-id "$device_uuid" \
   --log "$evidence/install.raw.log" \
@@ -135,7 +99,7 @@ python3 ~/.codex/skills/run-apple-verification-loop/scripts/run_device.py \
     --device "$device_uuid" '<exact-App.app>' \
     --json-output "$evidence/install.json"
 
-python3 ~/.codex/skills/run-apple-verification-loop/scripts/run_device.py \
+python3 ~/.codex/skills/run-apple-verification-loop/scripts/lane.py run-devicectl \
   --owner '<task-id>' \
   --device-id "$device_uuid" \
   --log "$evidence/launch.raw.log" \
@@ -144,41 +108,41 @@ python3 ~/.codex/skills/run-apple-verification-loop/scripts/run_device.py \
     --json-output "$evidence/launch.json"
 ```
 
-The helper permits only those installed-command shapes, preserves raw output and exit status, and requires successful structured JSON. A direct
-launch does not attach an Xcode scheme's StoreKit configuration; use the configured Xcode Run scheme for StoreKit behavior.
+A successful structured result proves that operation only. It does not prove visible app state, interaction behavior, persistence, or StoreKit
+configuration. A direct launch does not attach an Xcode Run scheme's StoreKit configuration.
 
-Keep Computer Use scoped to the owned Device Hub window, leased device, exact binary, and named scenario. Follow the Computer Use confirmation
-policy; lane ownership does not authorize unrelated or consequential UI actions. Fetch fresh state after each action before deciding the next one.
+## 5. Verify interactive UI only when the claim needs it
+
+Read [references/live-smoke.md](references/live-smoke.md) before Device Hub interaction or runtime UI evidence. Device Hub and Computer Use are
+required for claims about the visible Device Hub window, exact displayed identifier/state, destination-picker changes, and user-visible runtime
+behavior. They are not prerequisites for automated compile, test, or snapshot gates.
+
+If Computer Use cannot fetch fresh Device Hub state, record interactive QA as blocked. Continue independent automated gates when their evidence is
+still valid; do not promote those results into UI, physical-device, or runtime claims.
 
 ## 6. Verify snapshots and runtime evidence
 
-For snapshot changes, keep the phases distinct:
+Read [references/evidence-contract.md](references/evidence-contract.md) whenever snapshots, Device Hub, or runtime evidence are in scope.
 
-1. Record the narrow filter on the owned canonical device.
+For each snapshot filter:
+
+1. Record on the owned exact device.
 2. Inspect every changed image at rendered size.
 3. Rerun the same filter with recording disabled and confirm the test executed.
 
-If a repository helper hardcodes a display name, shared DerivedData, or another device, do not use it concurrently. Prefer an existing exact-lane
-option; otherwise run the equivalent guarded command or deliberately fix the helper in scope.
-
-Read [references/evidence-contract.md](references/evidence-contract.md) whenever snapshots or Device Hub evidence are in scope. Keep Playbook and
-production callback claims separate.
+If a repository helper hardcodes a display name, shared DerivedData, or another device, do not use it concurrently. Prefer an exact-lane option or
+run the equivalent guarded command.
 
 ## 7. Review and release
 
-Before declaring success:
+Before declaring success, inspect the scoped diff and dirty worktree, confirm intended tests executed, distinguish record failures from clean
+comparison results, and reject partial, stale, wrong-binary, wrong-scenario, or wrong-device evidence.
 
-- inspect the scoped diff and dirty worktree;
-- confirm each intended test executed with nonzero count;
-- distinguish intentional record failures from clean comparison results;
-- reject empty, loading, partial, wrong-scenario, wrong-binary, or wrong-device evidence;
-- record blockers instead of fabricating proof.
-
-Release every owned lane, including failed lanes:
+Release every owned lane on success, failure, or interruption:
 
 ```sh
 python3 ~/.codex/skills/run-apple-verification-loop/scripts/lane.py release \
   --owner '<task-id>' --device-id '<exact-CoreDevice-UUID>'
 ```
 
-Then explicitly tell collaborators the Xcode and Device Hub resources are released.
+Then explicitly report that the owned Apple verification resources are released.

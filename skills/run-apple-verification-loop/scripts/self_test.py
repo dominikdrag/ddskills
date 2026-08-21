@@ -13,8 +13,6 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_DIR = SCRIPT_DIR.parent
 LANE = SCRIPT_DIR / "lane.py"
-RUN_GATE = SCRIPT_DIR / "run_gate.py"
-RUN_DEVICE = SCRIPT_DIR / "run_device.py"
 DEVICE_A = "11111111-1111-4111-8111-111111111111"
 DEVICE_B = "22222222-2222-4222-8222-222222222222"
 PHYSICAL_DEVICE = "33333333-3333-4333-8333-333333333333"
@@ -113,7 +111,13 @@ print("TEST SUCCEEDED" if os.environ.get("FAKE_ZERO_TESTS") else "Executed 1 tes
 
 
 def reserve(
-    env: dict[str, str], root: Path, owner: str, identifier: str, suffix: str
+    env: dict[str, str],
+    root: Path,
+    owner: str,
+    identifier: str,
+    suffix: str,
+    *,
+    device_hub_window: str | None = None,
 ) -> subprocess.Popen[str]:
     repo = root / f"repo-{suffix}"
     workspace = repo / f"App-{suffix}.xcworkspace"
@@ -139,9 +143,9 @@ def reserve(
         str(evidence / "DerivedData"),
         "--evidence",
         str(evidence),
-        "--device-hub-window",
-        f"window-{suffix}",
     ]
+    if device_hub_window:
+        command.extend(["--device-hub-window", device_hub_window])
     return subprocess.Popen(
         command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
     )
@@ -161,38 +165,6 @@ def run(
     return result
 
 
-def confirm(
-    env: dict[str, str],
-    owner: str,
-    identifier: str,
-    window: str,
-    purpose: str,
-    state: str,
-    *,
-    observed: str | None = None,
-    expected: int = 0,
-) -> subprocess.CompletedProcess[str]:
-    return run(
-        sys.executable,
-        str(LANE),
-        "confirm-device-hub",
-        "--owner",
-        owner,
-        "--device-id",
-        identifier,
-        "--device-hub-window",
-        window,
-        "--purpose",
-        purpose,
-        "--observed-device-id",
-        observed or identifier,
-        "--observed-state",
-        state,
-        env=env,
-        expected=expected,
-    )
-
-
 def gate_command(
     repo: Path,
     evidence: Path,
@@ -203,7 +175,8 @@ def gate_command(
 ) -> list[str]:
     command = [
         sys.executable,
-        str(RUN_GATE),
+        str(LANE),
+        "run-xcodebuild",
         "--owner",
         "owner-a",
         "--device-id",
@@ -240,8 +213,39 @@ def assert_no_legacy_tool() -> None:
             )
 
 
+def assert_no_fake_ui_evidence() -> None:
+    forbidden = ("confirm-device" + "-hub", "deviceHub" + "Confirmations")
+    for path in SKILL_DIR.rglob("*"):
+        if path.suffix not in {".md", ".py", ".yaml", ".yml"}:
+            continue
+        text = path.read_text(encoding="utf-8")
+        for phrase in forbidden:
+            if phrase in text:
+                raise AssertionError(
+                    f"fake UI evidence record found in {path.relative_to(SKILL_DIR)}"
+                )
+
+
+def assert_single_guard_entrypoint() -> None:
+    removed_names = ("run_" + "gate.py", "run_" + "device.py")
+    for name in removed_names:
+        if (SCRIPT_DIR / name).exists():
+            raise AssertionError(f"obsolete guard script still exists: {name}")
+    for path in SKILL_DIR.rglob("*"):
+        if path.suffix not in {".md", ".py", ".yaml", ".yml"}:
+            continue
+        text = path.read_text(encoding="utf-8")
+        for name in removed_names:
+            if name in text:
+                raise AssertionError(
+                    f"obsolete guard reference found in {path.relative_to(SKILL_DIR)}"
+                )
+
+
 def main() -> int:
     assert_no_legacy_tool()
+    assert_no_fake_ui_evidence()
+    assert_single_guard_entrypoint()
     with tempfile.TemporaryDirectory(prefix="apple-lane-test-") as temporary:
         root = Path(temporary)
         device_file = install_fake_tools(root)
@@ -313,23 +317,6 @@ def main() -> int:
         repo = root / "repo-a2"
         evidence = repo / "task-evidence" / "a2"
         exact_destination = f"platform=iOS Simulator,id={DEVICE_A}"
-        run(
-            *gate_command(repo, evidence, exact_destination, "unconfirmed.raw.log"),
-            env=env,
-            expected=2,
-        )
-        confirm(
-            env,
-            "owner-a",
-            DEVICE_A,
-            "window-a2",
-            "destination",
-            "Booted",
-            observed=DEVICE_B,
-            expected=2,
-        )
-        confirm(env, "owner-a", DEVICE_A, "window-a2", "destination", "Booted")
-
         gate = run(
             *gate_command(
                 repo, evidence, exact_destination, "gate.raw.log", require_tests=True
@@ -387,7 +374,8 @@ def main() -> int:
         installed_app.mkdir(parents=True)
         install_command = [
             sys.executable,
-            str(RUN_DEVICE),
+            str(LANE),
+            "run-devicectl",
             "--owner",
             "owner-a",
             "--device-id",
@@ -406,8 +394,6 @@ def main() -> int:
             "--json-output",
             str(install_json),
         ]
-        run(*install_command, env=env, expected=2)
-        confirm(env, "owner-a", DEVICE_A, "window-a2", "runtime", "Booted and visible")
         run(*install_command, env=env, expected=0)
         if (
             json.loads(install_json.read_text(encoding="utf-8"))["info"]["outcome"]
@@ -420,7 +406,8 @@ def main() -> int:
         launch_json = evidence / "launch.json"
         run(
             sys.executable,
-            str(RUN_DEVICE),
+            str(LANE),
+            "run-devicectl",
             "--owner",
             "owner-a",
             "--device-id",
@@ -467,15 +454,6 @@ def main() -> int:
         physical.communicate()
         physical_repo = root / "repo-physical"
         physical_evidence = physical_repo / "task-evidence" / "physical"
-        confirm(
-            env,
-            "owner-p",
-            PHYSICAL_DEVICE,
-            "window-physical",
-            "destination",
-            "Connected",
-            observed=PHYSICAL_DESTINATION,
-        )
         physical_gate = gate_command(
             repo,
             evidence,
@@ -515,6 +493,45 @@ def main() -> int:
                 expected=0,
             )
 
+        interactive = reserve(
+            env,
+            root,
+            "owner-ui",
+            DEVICE_A,
+            "interactive",
+            device_hub_window="shared-device-hub-window",
+        )
+        if interactive.wait() != 0:
+            raise AssertionError(
+                f"interactive lane reservation failed: {interactive.communicate()}"
+            )
+        interactive.communicate()
+        window_collision = reserve(
+            env,
+            root,
+            "owner-ui-2",
+            DEVICE_B,
+            "interactive-2",
+            device_hub_window="shared-device-hub-window",
+        )
+        if window_collision.wait() != 2:
+            raise AssertionError(
+                "shared Device Hub window did not collide: "
+                f"{window_collision.communicate()}"
+            )
+        window_collision.communicate()
+        run(
+            sys.executable,
+            str(LANE),
+            "release",
+            "--owner",
+            "owner-ui",
+            "--device-id",
+            DEVICE_A,
+            env=env,
+            expected=0,
+        )
+
         corrupt_lease = root / "state" / "corrupt.json"
         corrupt_lease.write_text("{", encoding="utf-8")
         run(sys.executable, str(LANE), "list", "--json", env=env, expected=2)
@@ -532,8 +549,8 @@ def main() -> int:
         )
 
     print(
-        "self-test passed: devicectl identity, Device Hub confirmation, collisions, "
-        "device kinds, exact destinations, operations, and regression guard"
+        "self-test passed: devicectl identity, collisions, device kinds, exact "
+        "destinations, guarded operations, and regression checks"
     )
     return 0
 

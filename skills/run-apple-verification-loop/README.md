@@ -9,7 +9,7 @@ runtime or visual evidence, release-grade provenance, or an explicit request.
 ## Verification flow
 
 1. Read the repository's testing and QA contract.
-2. Run the smallest repository-native gate with existing build data and its established destination.
+2. Run only the smallest repository-native tests related to the change, using existing build data and the established destination.
 3. Escalate only when the claim needs exact ownership, stable device identity, or persistent evidence.
 4. If escalated, atomically reserve the exact CoreDevice UUID and task-specific paths.
 5. Run isolated Xcode and supported direct-device commands through the lease guard.

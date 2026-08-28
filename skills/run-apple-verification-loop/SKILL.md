@@ -25,6 +25,10 @@ process is actually using the same checkout.
 For an ordinary compile, unit-test, or targeted integration-test check:
 
 - Run the repository's smallest relevant verification command unchanged when possible.
+- Derive test scope from the changed behavior, files, and dependency surface. Prefer the smallest test case, suite, filter, or test target that
+  exercises the change and its plausible regressions.
+- Do not run every test target or the full test plan by default. Broaden beyond related tests only when the change crosses shared or module
+  boundaries, a targeted failure suggests wider impact, the repository or release gate requires it, or the user explicitly asks for broader testing.
 - Reuse the normal Xcode DerivedData location or an already-established repository path. Do not create a task-specific evidence directory, pass a
   fresh `-derivedDataPath`, add a `-resultBundlePath`, or persist copied logs by default.
 - Do not clean or delete existing DerivedData as part of routine verification.

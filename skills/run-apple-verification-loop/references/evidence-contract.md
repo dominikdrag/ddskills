@@ -1,5 +1,9 @@
 # Apple Verification Evidence Contract
 
+General snapshot and runtime evidence rules apply whenever those claims are in scope. Exact lane metadata and guarded command requirements apply
+only after verification has escalated. Ordinary repository-native compile, test, and deterministic snapshot checks do not require an exact device,
+new evidence directory, or isolated DerivedData.
+
 ## Authority boundaries
 
 | Source or resource | What it can prove | What it cannot prove |
@@ -15,7 +19,7 @@
 Use only the sources needed for the claim. Automated compile, test, snapshot, install, and launch commands do not require a Device Hub observation.
 Interactive Device Hub and runtime claims do.
 
-## Required lane metadata
+## Required metadata for an isolated lane
 
 - Repository and checkout path
 - Task and owner
@@ -28,7 +32,7 @@ Interactive Device Hub and runtime claims do.
 - Device Hub window coordination label only when interactive UI is in scope
 - Source revision when binary provenance matters
 
-## Automated gates
+## Automated gates in an isolated lane
 
 - Preserve raw output and the underlying exit code.
 - Recheck exact structured device identity immediately before a guarded command.
@@ -40,12 +44,15 @@ Interactive Device Hub and runtime claims do.
 
 ## Snapshot gates
 
-For each filter, retain:
+Use the repository's normal destination and existing DerivedData unless the output depends on a stable model, OS, scale, or exact runtime state. Do
+not create persistent raw logs solely because a snapshot test ran. For each filter, confirm:
 
-1. Record-mode raw log and expected write count.
+1. Record mode ran and produced the expected write count.
 2. A list of every changed reference inspected at rendered size.
 3. Notes for intentional visual changes and rejected output.
-4. Record-off raw log proving the same test executed and passed.
+4. Record-off output proving the same test executed and passed.
+
+When persistent evidence or an isolated lane is required, retain the corresponding raw logs and exact destination metadata.
 
 Never accept a recording merely because files were written. Reject loading, blank, clipped, dependency-invalid, wrong-scenario, wrong-device, or
 stale-binary images.

@@ -1,23 +1,24 @@
 # Run Apple Verification Loop
 
-Reserve isolated Apple-platform verification lanes and produce evidence tied to an exact repository, workspace, device, DerivedData path, and task.
+Run proportional Apple-platform verification while reusing normal build data and destinations unless exact isolation is genuinely required.
 
-Use this skill for Tuist, Xcode, `xcodebuild`, simulators, physical devices, Device Hub, snapshots, and runtime QA when concurrent repositories or
-worktrees must not collide.
+Use this skill for Tuist, Xcode, `xcodebuild`, simulators, physical devices, Device Hub, snapshots, and runtime QA. Ordinary compile and test checks
+reuse the repository's normal command, destination, and DerivedData. Exact lanes are reserved only for actual contention, device-specific behavior,
+runtime or visual evidence, release-grade provenance, or an explicit request.
 
 ## Verification flow
 
 1. Read the repository's testing and QA contract.
-2. Discover structured `devicectl` inventory with physical and simulated devices clearly labelled.
-3. Atomically reserve the exact CoreDevice UUID and task-specific paths.
-4. Run automated Xcode and supported direct-device commands through the lease guard.
-5. Use fresh Device Hub and Computer Use state only for interactive UI claims that require it.
-6. Verify snapshots with record, rendered inspection, and clean comparison as separate phases.
-7. Release every lane on success, failure, or interruption.
+2. Run the smallest repository-native gate with existing build data and its established destination.
+3. Escalate only when the claim needs exact ownership, stable device identity, or persistent evidence.
+4. If escalated, atomically reserve the exact CoreDevice UUID and task-specific paths.
+5. Run isolated Xcode and supported direct-device commands through the lease guard.
+6. Use fresh Device Hub and Computer Use state only for interactive UI claims that require it.
+7. Release every reserved lane on success, failure, or interruption.
 
-The deterministic kernel rejects absent devices, lease collisions, name-based or partial destinations, shared DerivedData, unsupported direct-device
-operations, unsuccessful structured results, and zero-test success. UI evidence remains a separate observation boundary rather than a value an agent
-can type into a manifest.
+The deterministic kernel applies only after escalation. It rejects absent devices, lease collisions, name-based or partial destinations, shared
+DerivedData, unsupported direct-device operations, unsuccessful structured results, and zero-test success. UI evidence remains a separate
+observation boundary rather than a value an agent can type into a manifest.
 
 ## Bundled resources
 

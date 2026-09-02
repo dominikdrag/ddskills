@@ -38,6 +38,11 @@ For an ordinary compile, unit-test, or targeted integration-test check:
   destination becomes necessary, choose the least specific suitable destination first; selecting a destination does not by itself require fresh
   DerivedData or a persistent evidence directory.
 - Confirm the command's exit status and, for tests, that the intended tests actually executed using terminal output or an existing result bundle.
+- Pass `-collect-test-diagnostics never` to every `xcodebuild test` or `test-without-building` you compose yourself. After any failing test,
+  Xcode otherwise blocks for about 600 seconds collecting simulator diagnostics, and snapshot record runs report every written golden as a
+  failure, so they always pay it. A repository wrapper may already pass it; check before adding it twice.
+- Verify several test targets in one `xcodebuild` invocation (`-only-testing:` per target on an umbrella scheme) rather than one invocation per
+  scheme; each invocation re-pays build-graph resolution and roughly ten seconds of test-runner startup.
 
 Avoid hypothetical isolation. Multiple repositories, worktrees, or agents on the machine are not alone a reason to create a lane; there must be an
 actual overlapping resource, observed collision, or verification requirement that shared state cannot satisfy.
@@ -58,10 +63,18 @@ State the concrete reason for escalation. Do not create an isolated lane as a pr
 
 ## 4. Reserve an exact lane only after escalation
 
+Resolve the installed skill directory once per shell. It is the directory this `SKILL.md` was loaded from: for Claude Code that is
+`~/.agents/skills/run-apple-verification-loop`, for Codex `~/.codex/skills/run-apple-verification-loop`.
+
+```sh
+SKILL_DIR=~/.agents/skills/run-apple-verification-loop   # Claude Code
+# SKILL_DIR=~/.codex/skills/run-apple-verification-loop  # Codex
+```
+
 List the selected Xcode's structured device inventory and current leases:
 
 ```sh
-python3 ~/.codex/skills/run-apple-verification-loop/scripts/lane.py list
+python3 "$SKILL_DIR/scripts/lane.py" list
 ```
 
 Choose an exact CoreDevice UUID; never substitute a display name. For a physical device, the lease separately records its hardware UDID as the
@@ -70,7 +83,7 @@ Xcode destination ID.
 Reserve the device, workspace, DerivedData, and evidence paths with a stable owner such as the Codex task ID:
 
 ```sh
-python3 ~/.codex/skills/run-apple-verification-loop/scripts/lane.py reserve \
+python3 "$SKILL_DIR/scripts/lane.py" reserve \
   --owner '<task-id>' \
   --task '<ticket-or-slice>' \
   --role test \
@@ -84,13 +97,13 @@ python3 ~/.codex/skills/run-apple-verification-loop/scripts/lane.py reserve \
 Add `--device-hub-window '<collision-resistant-label>'` only when the lane will interact with Device Hub. The label coordinates ownership; it does
 not prove an actual window, identifier, or state.
 
-The machine-global registry is `~/.codex/state/apple-verification-lanes`. Set `CODEX_APPLE_LANE_STATE` only for isolated registry tests. If a
+The machine-global registry is `~/.codex/state/apple-verification-lanes`, shared by every agent on the machine regardless of where the skill is installed. Set `CODEX_APPLE_LANE_STATE` only for isolated registry tests. If a
 reservation collides, stop and coordinate. Never steal a lease, kill a foreign process, retarget a foreign device, or use another lane's resources.
 
 Save a lane manifest only when persistent evidence is required:
 
 ```sh
-python3 ~/.codex/skills/run-apple-verification-loop/scripts/lane.py status \
+python3 "$SKILL_DIR/scripts/lane.py" status \
   --device-id '<exact-CoreDevice-UUID>' --json | tee '<evidence-dir>/lane-manifest.json'
 ```
 
@@ -101,10 +114,10 @@ Read the exact destination from the lease and run `xcodebuild` through the guard
 ```sh
 device_uuid='<exact-CoreDevice-UUID>'
 evidence='<evidence-dir>'
-destination="$(python3 ~/.codex/skills/run-apple-verification-loop/scripts/lane.py status \
+destination="$(python3 "$SKILL_DIR/scripts/lane.py" status \
   --device-id "$device_uuid" --json | jq -r '.xcodeDestination')"
 
-python3 ~/.codex/skills/run-apple-verification-loop/scripts/lane.py run-xcodebuild \
+python3 "$SKILL_DIR/scripts/lane.py" run-xcodebuild \
   --owner '<task-id>' \
   --device-id "$device_uuid" \
   --log "$evidence/<scheme>.raw.log" \
@@ -122,7 +135,7 @@ paths. Treat the underlying exit code and raw output as authoritative.
 Use the same lease guard for supported direct operations:
 
 ```sh
-python3 ~/.codex/skills/run-apple-verification-loop/scripts/lane.py run-devicectl \
+python3 "$SKILL_DIR/scripts/lane.py" run-devicectl \
   --owner '<task-id>' \
   --device-id "$device_uuid" \
   --log "$evidence/install.raw.log" \
@@ -130,7 +143,7 @@ python3 ~/.codex/skills/run-apple-verification-loop/scripts/lane.py run-devicect
     --device "$device_uuid" '<exact-App.app>' \
     --json-output "$evidence/install.json"
 
-python3 ~/.codex/skills/run-apple-verification-loop/scripts/lane.py run-devicectl \
+python3 "$SKILL_DIR/scripts/lane.py" run-devicectl \
   --owner '<task-id>' \
   --device-id "$device_uuid" \
   --log "$evidence/launch.raw.log" \
@@ -155,6 +168,11 @@ each snapshot filter:
 2. Inspect every changed image at rendered size.
 3. Rerun the same filter with recording disabled and confirm the test executed.
 
+Set `SNAPSHOT_ARTIFACTS` for swift-snapshot-testing (as `TEST_RUNNER_SNAPSHOT_ARTIFACTS` under `xcodebuild`) so newly rendered failure images
+land in the evidence directory instead of the simulator's private tmp folder, and export the reference, failure, and difference attachments with
+`xcrun xcresulttool export attachments --path <xcresult> --output-path <dir> --only-failures` instead of opening the bundle by hand. A repository
+wrapper may already do both and write a report; read that report before the raw log.
+
 If Computer Use cannot fetch fresh Device Hub state, record interactive QA as blocked. Continue independent automated gates when their evidence is
 still valid; do not promote those results into UI, physical-device, or runtime claims.
 
@@ -166,7 +184,7 @@ Reject partial, stale, wrong-binary, wrong-scenario, or wrong-device evidence.
 If and only if a lane was reserved, release it on success, failure, or interruption:
 
 ```sh
-python3 ~/.codex/skills/run-apple-verification-loop/scripts/lane.py release \
+python3 "$SKILL_DIR/scripts/lane.py" release \
   --owner '<task-id>' --device-id '<exact-CoreDevice-UUID>'
 ```
 

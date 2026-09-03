@@ -10,6 +10,8 @@ Personal Codex skills, packaged for installation with the [`skills` CLI](https:/
   focused leaf agents, incremental reviewable commits, and evidence-backed closure.
 - [`maintain-implementation-notes`](skills/maintain-implementation-notes/README.md): maintain a self-contained HTML decision and verification
   ledger while implementing a specification.
+- [`social-campaign-lab`](skills/social-campaign-lab/SKILL.md): coordinate isolated static social campaign explorations, self-contained visual
+  review boards, and decision-driven revision rounds without publishing.
 - [`run-apple-verification-loop`](skills/run-apple-verification-loop/README.md): reserve exact Apple verification lanes and produce guarded test,
   snapshot, and runtime evidence.
 
@@ -17,7 +19,7 @@ Personal Codex skills, packaged for installation with the [`skills` CLI](https:/
 
 The repository is private. Authenticate GitHub access on the machine first, for example with `gh auth login`.
 
-Install all four skills globally for Codex:
+Install all five skills globally for Codex:
 
 ```sh
 npx skills add dominikdrag/ddskills --skill '*' -g -a codex -y

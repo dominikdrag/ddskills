@@ -1,7 +1,10 @@
 # Review manifest
 
-Use one JSON manifest as the coordinator ledger. Relative `sourceDir` values resolve from the manifest file; absolute values are accepted when a task
-worktree needs an explicitly shared collection path. Every frame resolves from its `sourceDir`.
+Use one JSON manifest as the coordinator ledger. The example below documents legacy review-only schema version 1. New production campaigns use schema
+version 2 from [campaign-contract.md](campaign-contract.md); the review board accepts both versions.
+
+Relative `sourceDir` values resolve from the manifest file; absolute values are accepted when a task worktree needs an explicitly shared collection
+path. Every frame resolves from its `sourceDir`.
 
 ```json
 {

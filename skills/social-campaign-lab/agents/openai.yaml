@@ -1,4 +1,4 @@
 interface:
   display_name: "Social Campaign Lab"
-  short_description: "Coordinate campaign concepts and review rounds"
-  default_prompt: "Use $social-campaign-lab to run a coherent, isolated social campaign exploration and review round."
+  short_description: "Coordinate consistent campaign review and handoff"
+  default_prompt: "Use $social-campaign-lab to run a coherent campaign from isolated exploration through reviewed posting-pack handoff."

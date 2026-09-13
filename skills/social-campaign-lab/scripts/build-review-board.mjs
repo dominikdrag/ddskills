@@ -166,8 +166,8 @@ function normalizedDecisions(raw, campaignId) {
 }
 
 function verifyManifest(raw, manifestPath) {
-    if (raw?.schemaVersion !== 1 || typeof raw.campaign !== "object" || !Array.isArray(raw.concepts)) {
-        fail("manifest must contain schemaVersion 1, campaign, and concepts");
+    if (![1, 2].includes(raw?.schemaVersion) || typeof raw.campaign !== "object" || !Array.isArray(raw.concepts)) {
+        fail("manifest must contain schemaVersion 1 or 2, campaign, and concepts");
     }
     const campaign = {
         id: requiredString(raw.campaign.id, "campaign.id"),

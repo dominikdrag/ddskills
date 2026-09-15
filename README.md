@@ -12,6 +12,8 @@ Personal Codex skills, packaged for installation with the [`skills` CLI](https:/
   ledger while implementing a specification.
 - [`social-campaign-lab`](skills/social-campaign-lab/SKILL.md): coordinate isolated static social campaign explorations, self-contained visual
   review boards, and decision-driven revision rounds without publishing.
+- [`transcribe-diarize`](skills/transcribe-diarize/SKILL.md): transcribe and diarize completed local audio or video with Parakeet or WhisperKit
+  while keeping recording content on-device.
 - [`run-apple-verification-loop`](skills/run-apple-verification-loop/README.md): reserve exact Apple verification lanes and produce guarded test,
   snapshot, and runtime evidence.
 
@@ -19,7 +21,7 @@ Personal Codex skills, packaged for installation with the [`skills` CLI](https:/
 
 The repository is private. Authenticate GitHub access on the machine first, for example with `gh auth login`.
 
-Install all five skills globally for Codex:
+Install all six skills globally for Codex:
 
 ```sh
 npx skills add dominikdrag/ddskills --skill '*' -g -a codex -y

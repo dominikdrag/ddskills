@@ -46,10 +46,10 @@ when the task API supports them, until every lane completes or needs attention.
 
 ## Collect and verify
 
-Wait for every source task. A completed task message is not asset proof. Create the schema-v2 campaign manifest, then run:
+Wait for every source task. A completed task message is not asset proof. Create the schema-v2 campaign manifest. Resolve this skill's actual installed directory as `<skill-dir>` in the commands below; do not assume a project-local install. Then run:
 
 ```sh
-node .agents/skills/social-campaign-lab/scripts/campaign-assets.mjs validate \
+node "<skill-dir>/scripts/campaign-assets.mjs" validate \
   --manifest <campaign-manifest.json> \
   --report <validation-report.json>
 ```
@@ -60,7 +60,7 @@ a different visual-authority hash. This validation proves the recorded artifacts
 Build the portable board only after validation. Read [references/review-manifest.md](references/review-manifest.md) for its decision and refresh contract:
 
 ```sh
-node .agents/skills/social-campaign-lab/scripts/build-review-board.mjs \
+node "<skill-dir>/scripts/build-review-board.mjs" \
   --manifest <campaign-manifest.json> \
   --output <review-board.html> \
   [--decisions <exported-decisions.json>]
@@ -90,7 +90,7 @@ remain embedded. A revised asset does not silently change its verdict.
 After all intended posts have a `Keep` decision and an explicit unique `postingOrder`, assemble one immutable, numbered handoff directory:
 
 ```sh
-node .agents/skills/social-campaign-lab/scripts/campaign-assets.mjs assemble \
+node "<skill-dir>/scripts/campaign-assets.mjs" assemble \
   --manifest <campaign-manifest.json> \
   --decisions <exported-decisions.json> \
   --output <posting-pack-directory>

@@ -1,5 +1,7 @@
 # Reference — transcribe-diarize
 
+Resolve `SKILL` to this skill's actual installed directory before running the examples; agent hosts and install scopes use different paths.
+
 ## Engine routing contract
 
 The user's wording selects the ASR engine:
@@ -61,7 +63,8 @@ After a WhisperKit run, verify:
 The bootstrap is explicit because it downloads code and Python packages:
 
 ```bash
-bash ~/.agents/skills/transcribe-diarize/scripts/bootstrap_parakeet.sh
+SKILL="/absolute/path/to/installed/transcribe-diarize"
+bash "$SKILL/scripts/bootstrap_parakeet.sh"
 ```
 
 Defaults:
@@ -119,7 +122,7 @@ Environment overrides:
 ## Manual Parakeet + FluidAudio pipeline
 
 ```bash
-SKILL="$HOME/.agents/skills/transcribe-diarize"
+SKILL="/absolute/path/to/installed/transcribe-diarize"
 WORK="/path/to/output"
 INPUT="/path/to/input.qta"
 PYTHON="${PARAKEET_PYTHON:-$HOME/.cache/transcribe-diarize/parakeet-venv/bin/python}"
@@ -157,7 +160,7 @@ Only pass `--num-speakers` when the count is known.
 ## Manual WhisperKit large-v3-turbo + FluidAudio pipeline
 
 ```bash
-SKILL="$HOME/.agents/skills/transcribe-diarize"
+SKILL="/absolute/path/to/installed/transcribe-diarize"
 WORK="/path/to/output"
 INPUT="/path/to/input.qta"
 FLUID_AUDIO="${FLUID_AUDIO_PACKAGE:-$HOME/.cache/transcribe-diarize/FluidAudio}"
@@ -220,7 +223,7 @@ First inspect `transcript.md`, then run only the aligner again.
 Parakeet:
 
 ```bash
-python3 ~/.agents/skills/transcribe-diarize/scripts/align_parakeet_fluidaudio.py \
+python3 "$SKILL/scripts/align_parakeet_fluidaudio.py" \
   "$WORK/session-asr.json" \
   "$WORK/session-diarization.json" \
   --outdir "$WORK" \
@@ -230,7 +233,7 @@ python3 ~/.agents/skills/transcribe-diarize/scripts/align_parakeet_fluidaudio.py
 WhisperKit:
 
 ```bash
-python3 ~/.agents/skills/transcribe-diarize/scripts/align_parakeet_fluidaudio.py \
+python3 "$SKILL/scripts/align_parakeet_fluidaudio.py" \
   "$WORK/session.json" \
   "$WORK/session-diarization.json" \
   --outdir "$WORK" \
@@ -247,7 +250,7 @@ FluidAudio speaker IDs can swap between separate files. Never copy `S1=Name` bli
 2. Compare duration-weighted mean speaker embeddings:
 
 ```bash
-python3 ~/.agents/skills/transcribe-diarize/scripts/compare_fluidaudio_embeddings.py \
+python3 "$SKILL/scripts/compare_fluidaudio_embeddings.py" \
   "$ROOT/part1/session-diarization.json" \
   "$ROOT/part2/session-diarization.json" \
   "$ROOT/part3/session-diarization.json"

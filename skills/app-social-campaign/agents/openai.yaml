@@ -1,0 +1,4 @@
+interface:
+  display_name: "App Social Campaign"
+  short_description: "Plan and produce branded campaigns for your apps"
+  default_prompt: "Use $app-social-campaign to create an Instagram campaign for this app, starting with its current features, screenshots, and brand."

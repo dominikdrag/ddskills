@@ -32,13 +32,13 @@ as a blocking question.
 
 ## 2. Assign leaves
 
-Use one model family and place reasoning where the ambiguity is:
+Use the user's or host's configured model by default; omit a model override unless an explicit preference or repository rule selects one. Check available models and supported reasoning efforts before applying an override. Place reasoning where the ambiguity is, using the closest supported effort when these labels are unavailable:
 
 | Role | Default spawn configuration | Use for |
 | --- | --- | --- |
-| Scout | `model: "gpt-5.6-sol"`, `reasoning_effort: "low"`, `fork_turns: "none"` | One narrow read-only question: locate files, trace a path, find rules, tests, or blast radius. |
-| Worker | `model: "gpt-5.6-sol"`, `reasoning_effort: "medium"`, `fork_turns: "none"` | One routine implementation slice with explicit ownership and focused checks. |
-| Smart worker | `model: "gpt-5.6-sol"`, `reasoning_effort: "high"`, `fork_turns: "none"` | One difficult or ambiguous implementation seam requiring deeper judgment. |
+| Scout | `reasoning_effort: "low"`, `fork_turns: "none"` | One narrow read-only question: locate files, trace a path, find rules, tests, or blast radius. |
+| Worker | `reasoning_effort: "medium"`, `fork_turns: "none"` | One routine implementation slice with explicit ownership and focused checks. |
+| Smart worker | `reasoning_effort: "high"`, `fork_turns: "none"` | One difficult or ambiguous implementation seam requiring deeper judgment. |
 
 Default to fresh context. Inherit context only when a material conversation decision cannot be summarized safely. End every assignment with the leaf
 boundary:

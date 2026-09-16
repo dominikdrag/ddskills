@@ -42,10 +42,12 @@ Do not use WhisperKit CLI 1.0.0's default VAD for long completed files. It was o
 - Apple Silicon Mac.
 - `ffmpeg`, Python 3, Git, and Swift.
 - For WhisperKit: `brew install whisperkit-cli`.
+- Resolve this skill's actual installed directory. Set `SKILL_DIR` to it below; installation locations vary by agent and global/project scope.
 - Run the bootstrap once to prepare FluidAudio and the Parakeet runtime:
 
 ```bash
-bash ~/.agents/skills/transcribe-diarize/scripts/bootstrap_parakeet.sh
+SKILL_DIR="/absolute/path/to/installed/transcribe-diarize"
+bash "$SKILL_DIR/scripts/bootstrap_parakeet.sh"
 ```
 
 The bootstrap creates a dedicated MLX-Audio environment and FluidAudio checkout under `~/.cache/transcribe-diarize/`. It does not process audio. Model weights download on the first run of the selected engine.
@@ -55,7 +57,7 @@ The bootstrap creates a dedicated MLX-Audio environment and FluidAudio checkout 
 Parakeet:
 
 ```bash
-bash ~/.agents/skills/transcribe-diarize/scripts/transcribe_diarize.sh \
+bash "$SKILL_DIR/scripts/transcribe_diarize.sh" \
   "/path/to/recording.qta" \
   --engine parakeet \
   --lang pl \
@@ -65,7 +67,7 @@ bash ~/.agents/skills/transcribe-diarize/scripts/transcribe_diarize.sh \
 WhisperKit large-v3-turbo:
 
 ```bash
-bash ~/.agents/skills/transcribe-diarize/scripts/transcribe_diarize.sh \
+bash "$SKILL_DIR/scripts/transcribe_diarize.sh" \
   "/path/to/recording.qta" \
   --engine whisperkit \
   --lang pl \
@@ -81,7 +83,7 @@ Output defaults to `<recording-dir>/<basename>-transcript/` and can be changed w
 3. For multiple files from the same conversation, assume anonymous labels may swap between files. Compare FluidAudio speaker embeddings before applying names:
 
 ```bash
-python3 ~/.agents/skills/transcribe-diarize/scripts/compare_fluidaudio_embeddings.py \
+python3 "$SKILL_DIR/scripts/compare_fluidaudio_embeddings.py" \
   /path/to/part1/session-diarization.json \
   /path/to/part2/session-diarization.json \
   /path/to/part3/session-diarization.json
@@ -91,7 +93,7 @@ python3 ~/.agents/skills/transcribe-diarize/scripts/compare_fluidaudio_embedding
 5. Apply role names without rerunning inference. The aligner accepts either Parakeet `session-asr.json` or WhisperKit `session.json`:
 
 ```bash
-python3 ~/.agents/skills/transcribe-diarize/scripts/align_parakeet_fluidaudio.py \
+python3 "$SKILL_DIR/scripts/align_parakeet_fluidaudio.py" \
   "/path/to/output/session-asr.json" \
   "/path/to/output/session-diarization.json" \
   --outdir "/path/to/output" \

@@ -8,7 +8,7 @@ Before the spawn gate, replace the interrupted coordinator's ledger identity wit
 deliverable, ownership, dependencies, recipient, and interruption event. This is a takeover of one assignment, not a second overlapping assignment.
 
 > A previous coordinator reached `<recovered-state>`. Start with `<workflow> recover --state <state> --ticket <ticket-id>`. Reconcile that projection
-> against the ticket, notes, ledger, peer-message dependencies, evidence, `git status`, and authorized commits. Preserve valid landed work, verify it
+> against the ticket, selected decision record when any, ledger, peer-message dependencies, evidence, `git status`, and authorized commits. Preserve valid landed work, verify it
 > before relying on it, and identify the first unmet criterion. Then run `<workflow> resume --state <state> --ticket <ticket-id> --actor <fresh-target>`
 > to acknowledge takeover before continuing. Treat source artifacts as proof; the prior completion label is only a hint.
 

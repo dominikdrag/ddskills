@@ -63,6 +63,7 @@
       ],
       "notes": {
         "materialOmissions": [],
+        "required": true,
         "reviewed": true
       },
       "runtime": {

@@ -53,11 +53,11 @@ Installation copies the skill packages; it does not install their runtime depend
 
 | Skill | Use it for | Requirements |
 | --- | --- | --- |
-| [maintain-implementation-notes](skills/maintain-implementation-notes/README.md) | A readable decision and evidence record for a specification | File access; a browser for visual review |
+| [maintain-implementation-notes](skills/maintain-implementation-notes/README.md) | An optional durable decision record for long or ambiguous specification work | File access; a browser for visual review |
 | [run-apple-verification-loop](skills/run-apple-verification-loop/README.md) | Proportional Apple tests, snapshots, and runtime verification | macOS, Xcode and Python 3; Device Hub and Computer Use for the documented interactive lane |
 | [transcribe-diarize](skills/transcribe-diarize/SKILL.md) | Completed-file transcription and diarization on the Mac | Apple Silicon, Python 3, Git, Swift, FFmpeg; public model/runtime downloads; WhisperKit CLI for that engine |
-| [orchestrate-implementation-run](skills/orchestrate-implementation-run/SKILL.md) | Several independent implementation slices with one integration owner | Agent delegation; implementation-notes skill; Apple verification skill for Apple work |
-| [coordinate-multi-ticket-run](skills/coordinate-multi-ticket-run/README.md) | Dependency-ordered tickets, checked state transitions, and interrupted-run recovery | Python 3, agent delegation, implementation-notes skill; Apple verification skill for Apple work |
+| [orchestrate-implementation-run](skills/orchestrate-implementation-run/SKILL.md) | Several independent implementation slices with one integration owner | Agent delegation; optional implementation-notes skill for justified ledgers; Apple verification skill for Apple work |
+| [coordinate-multi-ticket-run](skills/coordinate-multi-ticket-run/README.md) | Dependency-ordered tickets, checked state transitions, and interrupted-run recovery | Python 3, agent delegation; optional implementation-notes skill for justified ledgers; Apple verification skill for Apple work |
 | [app-social-campaign](skills/app-social-campaign/SKILL.md) | App positioning, finished social assets, captions, and a review pack | Product assets; Node.js, Playwright and Sharp for HTML artwork; Python with Pillow; FFmpeg/ffprobe for video |
 | [social-campaign-lab](skills/social-campaign-lab/SKILL.md) | Parallel static campaign concepts, review decisions, and a validated handoff | Node.js and Codex task creation/coordination tools; authentic product captures |
 

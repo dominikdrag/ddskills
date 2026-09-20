@@ -3,7 +3,8 @@
 Read this file and `references/role-policy.md` only after a ticket reaches `acceptance`. Use the acceptance-checker runtime configuration, pass
 `fork_turns: "none"` explicitly, and preserve read-only authority. Replace every placeholder in this assignment:
 
-> Audit `<ticket>` using `<evidence>`, `<notes>`, normalized state `<state>`, workflow `<workflow>`, the coordinator report, actual diff or commits, and
+> Audit `<ticket>` using `<evidence>`, the selected decision record `<decision-record>` when required, normalized state `<state>`, workflow `<workflow>`,
+> the coordinator report, actual diff or commits, and
 > current repository state. For every acceptance criterion, report its ticket marking, named observation, evidence location, and pass or gap. Confirm
 > required tests executed with positive counts and authoritative exits; snapshot record-inspect-compare completion; runtime provenance; Apple lane
 > release; changed-path scope; assignment ownership and unresolved dependencies; authorized status, worklog, and commit changes; and preservation of

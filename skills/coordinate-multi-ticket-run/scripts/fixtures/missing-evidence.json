@@ -53,6 +53,7 @@
         "materialOmissions": [
           "Recovery trade-off"
         ],
+        "required": true,
         "reviewed": true
       },
       "runtime": {

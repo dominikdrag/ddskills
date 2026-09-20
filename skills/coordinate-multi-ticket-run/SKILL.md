@@ -24,8 +24,10 @@ collaboration calls, and user communication.
 3. Identify the approved specification and complete ticket graph. A missing product decision or unstable blocker/criterion is the stopping condition.
 4. Resolve the evidence location from explicit guidance or repository convention. Otherwise use a task-scoped location outside the worktree or verify that
    the repository ignores it.
-5. Record separate authority for commits, ticket/worklog/notes changes, worktrees, and external actions.
-6. Use `$maintain-implementation-notes` before the first implementation edit.
+5. Record separate authority for commits, ticket/worklog changes, worktrees, and external actions.
+6. Choose one authoritative decision/evidence record. Prefer existing tickets, worklogs, ADRs, feature docs, or the normalized run state. Use
+   `$maintain-implementation-notes` only when the user or repository requires it, or its cold-handoff criteria justify a separate ledger. Record that
+   choice in `run.json`; do not create an HTML ledger by default.
 7. Read [the workflow state contract](references/workflow-state.md). Create `<evidence>/run.json` as a projection of the actual tickets, repository
    statuses, assignments, and evidence. Source artifacts remain authoritative; the state file owns orchestration.
 8. Resolve this skill's directory and run `python3 <skill-dir>/scripts/workflow.py validate --state <evidence>/run.json`.
@@ -43,7 +45,7 @@ Run `workflow.py next` and execute exactly the returned action:
 - `reject_closure`: repair the reported evidence or state gaps while the ticket remains open.
 - `close_ticket`: follow the closure gate in Step 4.
 - `respawn_ticket_coordinator`: read [the recovery contract](references/recovery.md) and resume from the recovered frontier.
-- `run_blocked`: record blockers in implementation notes; ask one concise question when user input can advance the run.
+- `run_blocked`: record blockers in the authoritative ticket/run record; ask one concise question when user input can advance the run.
 - `run_complete`: audit the specification's full definition of done and report completion.
 - `invalid_state`: reconcile the projection with source artifacts before further delegation or closure.
 
@@ -55,8 +57,8 @@ recovery coordinators, acceptance checkers, and final auditors. Do not omit the 
 conversation. Override `"none"` only when the user explicitly requests inherited conversation history or the binding run contract requires it, and
 record the reason in the ledger before spawning.
 
-Because agents start with fresh task context, make each assignment self-contained. Include the objective; canonical specification, ticket, notes,
-state, workflow, evidence, and repository paths; frontier and dependency state; current commits and verification state; owned and protected paths or
+Because agents start with fresh task context, make each assignment self-contained. Include the objective; canonical specification, ticket, selected
+decision record when any, state, workflow, evidence, and repository paths; frontier and dependency state; current commits and verification state; owned and protected paths or
 seams; allowed edits, commits, device or external actions; lane requirements; safety boundaries; named recipients; and the required report shape.
 Fresh agents still receive platform and repository scaffolding, but do not assume they know any task-specific decision from the parent conversation.
 After each action, validate `run.json` again.
@@ -85,8 +87,8 @@ source artifacts and `run.json`.
 ## Step 4: Pass the closure gate
 
 For `spawn_acceptance_checker`, read [the acceptance checker contract](references/acceptance-checker.md), pass the spawn gate with its active assignment,
-and spawn a fresh read-only checker with `fork_turns: "none"`. The checker inspects the actual ticket, run state, evidence, notes, tests, diff or commits,
-repository state, and Apple lane release.
+and spawn a fresh read-only checker with `fork_turns: "none"`. The checker inspects the actual ticket, run state, evidence, selected decision record when
+required, tests, diff or commits, repository state, and Apple lane release.
 
 After its report, mark the checker assignment `done`, record every observation or gap, and run
 `workflow.py validate --state <state> --closure <ticket>`. Route a failing audit to `gap` with every observed gap. Route a passing audit to
@@ -99,10 +101,10 @@ corroborate acceptance observations, and execute the guarded transition. The eng
 
 ## Preserve recoverable truth
 
-Persist ticket/worklog state, implementation notes, scoped commits, raw logs, screenshots, `run.json`, JSONL events, and Apple lane manifests. Recover from
-those artifacts rather than inherited conversation, agent context, or completion labels. Recovery assignments remain self-contained and use
-`fork_turns: "none"`. Perform authorized bookkeeping after the closure gate passes. Ticket coordinators own
-authorized green implementation commits; the run coordinator owns missing notes or bookkeeping commits.
+Persist authoritative ticket/worklog state, scoped commits, raw logs, screenshots, `run.json`, JSONL events, Apple lane manifests, and a separate
+implementation-notes ledger only when one was selected. Recover from those artifacts rather than inherited conversation, agent context, or completion
+labels. Recovery assignments remain self-contained and use `fork_turns: "none"`. Perform authorized bookkeeping after the closure gate passes.
+Ticket coordinators own authorized green implementation commits. Do not create notes-only or hash-only bookkeeping commits.
 
 Report each ticket in two or three lines: changed scope or hashes, evidence location, open questions, and next frontier. End when the specification's
 definition of done is observed or every remaining ticket is explicitly blocked and recorded.

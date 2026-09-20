@@ -151,6 +151,23 @@ class WorkflowTests(unittest.TestCase):
             workflow.closure_gaps(state, "001"),
         )
 
+    def test_implementation_notes_are_optional_when_no_ledger_was_selected(self) -> None:
+        state = fixture("successful-completion.json")
+        del state["evidence"]["001"]["notes"]
+        self.assertEqual(workflow.closure_gaps(state, "001"), [])
+
+    def test_selected_implementation_notes_remain_a_closure_gate(self) -> None:
+        state = fixture("successful-completion.json")
+        state["evidence"]["001"]["notes"] = {
+            "required": True,
+            "reviewed": False,
+            "materialOmissions": [],
+        }
+        self.assertIn(
+            "implementation notes were not reviewed",
+            workflow.closure_gaps(state, "001"),
+        )
+
     def test_interrupted_ticket_derives_recovery_action(self) -> None:
         action = workflow.next_action(fixture("interrupted-recovery.json"))
         self.assertEqual(action["action"], "respawn_ticket_coordinator")

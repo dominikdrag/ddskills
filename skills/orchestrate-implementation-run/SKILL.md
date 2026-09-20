@@ -8,8 +8,8 @@ description: >-
 # Orchestrate Implementation Run
 
 Use a hub-and-spoke topology: keep the invoking agent as coordinator and every delegated agent as a leaf. Keep the coordinator user-facing and make it
-the sole owner of integration, approvals, implementation notes, and closure. Use the coordinator's task plan as the orchestration state unless the
-repository contract owns another state artifact.
+the sole owner of integration, approvals, and closure. Use the coordinator's task plan as the orchestration state unless the repository contract owns
+another state artifact. Keep one authoritative decision/evidence record; do not mirror the same state across plans, feature docs, and HTML notes.
 
 Run four coordinator phases in order: **Orient → Assign leaves → Implement and integrate → Verify and close**. Supporting skills satisfy steps inside
 a phase; only these four completion gates advance the run.
@@ -21,14 +21,15 @@ a phase; only these four completion gates advance the run.
 3. Resolve edit, commit, status, worktree, device, UI, and external-action authority separately. For commits, record the starting `HEAD` and dirty
    paths, whether commits are allowed, the repository's message and staging conventions, and who may create them. Keep the coordinator as the sole
    integration and commit owner unless the repository explicitly establishes another safe ownership model; leaves do not commit by default.
-4. Resolve the repository's implementation-notes convention and destination. Keep the coordinator as its single writer; leaves return proposed
-   entries.
+4. Resolve the authoritative decision/evidence record. Use an existing plan, ticket, worklog, ADR, or feature document when it already owns the
+   information. Select `$maintain-implementation-notes` only when the user or repository requires it, or the skill's cold-handoff criteria apply;
+   otherwise do not create an HTML ledger. If selected, keep the coordinator as its single writer.
 5. Route each material uncertainty to a read-only scout or record it with its affected slice, impact, and recommended default. Ask the user when the
    answer changes product, privacy, architecture, or release scope.
 
 **Complete orientation when:** every requested outcome has an acceptance observation; every proposed slice has its dependencies and unknowns named;
-authority, the commit owner, commit conventions, and notes ownership are explicit; and every material uncertainty is routed to a scout or recorded
-as a blocking question.
+authority, the commit owner, commit conventions, and authoritative record are explicit; and every material uncertainty is routed to a scout or
+recorded as a blocking question.
 
 ## 2. Assign leaves
 
@@ -51,7 +52,7 @@ Give every leaf one self-contained assignment containing:
 - repository root, relevant rules, specification sections, and acceptance observations;
 - owned files or seam, read-only or edit scope, and exact authority;
 - dependencies, canonical teammate recipients, required checks, evidence location, and return format;
-- preservation of unrelated dirty state and proposed implementation-notes entries.
+- preservation of unrelated dirty state and material decisions for the selected authoritative record.
 
 Name information dependencies. Have a leaf message the named teammate and coordinator when it produces or needs dependency information, then summarize
 material peer messages in its final report. Messages carry information; the original ownership and authority remain unchanged.
@@ -70,20 +71,21 @@ recipient, and the coordinator remains available to the user.
 ## 3. Implement and integrate
 
 1. Send independent read-only scouts in parallel when discovery can reduce implementation risk.
-2. Before the first implementation edit, invoke `$maintain-implementation-notes` to create or reuse the resolved page.
+2. If orientation selected a separate implementation-notes ledger, invoke `$maintain-implementation-notes` before the first material implementation
+   decision when practical. Otherwise keep decisions in the selected existing record.
 3. Convert stable findings into the smallest useful worker assignments. Use a smart worker for a difficult or ambiguous seam.
 4. Inspect actual edits, underlying check output, and peer messages as each leaf finishes. Return focused gaps to the owning leaf while it is live.
 5. Before replacement, inspect landed work and assign only the remaining scope.
 6. Integrate a coherent slice in the coordinator. A leaf report is not a commit boundary: include every change required for one reviewable behavior or
    contract, and exclude incomplete or unrelated work.
-7. Run the slice's focused checks. Update implementation notes and plan status with its decisions, scope, observed evidence, and blockers.
+7. Run the slice's focused checks. At accepted milestones, update only the authoritative record with material decisions, deviations, and blockers.
+   Keep routine commands, lane state, commit hashes, and duplicated acceptance text in their existing evidence, Git, or PR owners.
 8. When commits are authorized, land the accepted slice before assigning dependent work:
    - inspect `git status` against the recorded starting state and identify the exact owned files or patches;
    - stage only that scope, never unrelated dirty state or a broad add whose contents were not inspected;
    - inspect the complete staged diff and run the repository's staged-diff checks before every commit;
    - commit with the repository's convention, then record the hash beside the slice and its check evidence.
-9. Keep notes traceable without claiming that a commit contains its own hash. Mark the hash pending in the notes included with the slice, record the
-   resulting hash immediately in orchestration status, and add it to the notes in the next authorized slice or a final bookkeeping commit.
+9. Record resulting hashes in Git/PR metadata and orchestration status. Do not create a later notes edit or bookkeeping commit merely to copy hashes.
 
 Apply these gates explicitly:
 
@@ -98,8 +100,8 @@ Apply these gates explicitly:
   Run the seam's focused checks on the combined result and create one coherent commit before downstream assignment.
 
 **Complete integration when:** every slice is integrated and inspected or explicitly blocked; every material peer message is resolved; all focused
-checks have observed results; every authorized accepted slice is committed before dependent work; and implementation notes and orchestration status
-reflect the current decisions, evidence, commit hashes, and blockers.
+checks have observed results; every authorized accepted slice is committed before dependent work; and the authoritative record plus orchestration
+status reflect material decisions, evidence, and blockers.
 
 ## 4. Verify and close
 
@@ -115,10 +117,11 @@ Close against the acceptance map:
 - compare committed paths with `git status`, preserving recorded unrelated changes and identifying any intended scope left uncommitted;
 - map every acceptance criterion to an observed result or explicit blocker;
 - confirm every required test executed and every Apple lane was released;
-- validate the implementation-notes page with `$maintain-implementation-notes` and, when commits are authorized, commit final hash bookkeeping;
+- when a separate implementation-notes page was selected and changed, validate it with `$maintain-implementation-notes`; do not create final hash
+  bookkeeping;
 - report committed hashes and summaries in order, the checks and evidence for each slice, remaining worktree changes, blockers, and exact verification
   limits. When authority was absent, state that no commits were created and report the exact uncommitted scope instead.
 
 **Complete the run when:** every acceptance criterion has an observed result or recorded blocker, every required resource is released, the scoped
-worktree and notes agree with the committed scope, every intended authorized change is committed or explicitly blocked, and no active assignment
-remains unresolved.
+worktree and authoritative record agree with the implemented scope, every intended authorized change is committed or explicitly blocked, and no
+active assignment remains unresolved.

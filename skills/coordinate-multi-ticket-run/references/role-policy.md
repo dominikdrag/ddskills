@@ -29,6 +29,6 @@ the entire run even when the number looks small.
 
 - Give each agent a complete assignment, canonical recipient, relevant collaborators, explicit ownership, declared dependencies, and exact authority.
 - Treat messaging as information transfer; ownership and authority change only through the assignment ledger.
-- The active coordinator is the sole editor of `run.json`, implementation notes, ticket/worklog status, and shared evidence.
+- The active coordinator is the sole editor of `run.json`, the selected authoritative decision record, ticket/worklog status, and shared evidence.
 - Leaves finish their assignments directly, preserve unrelated dirty state, and return findings to the ticket coordinator. They do not delegate or commit.
 - A role's reasoning effort changes depth, not ownership or authority.

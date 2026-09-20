@@ -491,13 +491,24 @@ def closure_gaps(
     elif scope.get("unrelatedChanges") is not False:
         gaps.append("changed scope contains unrelated work")
 
-    notes = evidence.get("notes", {})
-    if not isinstance(notes, dict) or notes.get("reviewed") is not True:
-        gaps.append("implementation notes were not reviewed")
-    elif not isinstance(notes.get("materialOmissions"), list):
-        gaps.append("implementation notes must explicitly list material omissions")
-    elif notes.get("materialOmissions"):
-        gaps.append("implementation notes have material omissions")
+    notes = evidence.get("notes")
+    if notes is not None:
+        if not isinstance(notes, dict):
+            gaps.append("notes must be an object when present")
+        else:
+            required = notes.get("required")
+            if required not in {True, False, None}:
+                gaps.append("notes.required must be a boolean when present")
+            selected = required is True or (
+                required is None
+                and ("reviewed" in notes or "materialOmissions" in notes)
+            )
+            if selected and notes.get("reviewed") is not True:
+                gaps.append("implementation notes were not reviewed")
+            elif selected and not isinstance(notes.get("materialOmissions"), list):
+                gaps.append("implementation notes must explicitly list material omissions")
+            elif selected and notes.get("materialOmissions"):
+                gaps.append("implementation notes have material omissions")
 
     actions = evidence.get("actions")
     if not isinstance(actions, list):

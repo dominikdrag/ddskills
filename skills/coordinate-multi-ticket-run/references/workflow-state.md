@@ -1,7 +1,7 @@
 # Workflow State Contract
 
-Use this contract to create and maintain the normalized run state consumed by `scripts/workflow.py`. Repository tickets, worklogs, notes, commits,
-and evidence remain source artifacts. The state file records their orchestration projection; it does not rewrite repository files.
+Use this contract to create and maintain the normalized run state consumed by `scripts/workflow.py`. Repository tickets, worklogs, selected decision
+records, commits, and evidence remain source artifacts. The state file records their orchestration projection; it does not rewrite repository files.
 
 ## Files
 
@@ -66,7 +66,8 @@ For each ticket, record:
 - `runtime`: when required, `complete`, `binary`, `scenario`, `device`, owned-lane proof, and `location`.
 - `appleLane`: when required, `released`.
 - `scope`: `reviewed` and whether it contains `unrelatedChanges`.
-- `notes`: `reviewed` and any `materialOmissions`.
+- `notes`: optional. Omit it or set `required: false` when no separate implementation-notes ledger was selected. When `required: true`, record
+  `reviewed` and any `materialOmissions`. Legacy state with `reviewed` but no `required` remains valid and is treated as selected notes.
 - `actions`: required bookkeeping or external actions with `authorized` and `performed` facts.
 - `unauthorizedActions`: normally empty.
 

@@ -1,4 +1,4 @@
 interface:
   display_name: "Maintain Implementation Notes"
-  short_description: "Keep a durable spec decision ledger"
-  default_prompt: "Use $maintain-implementation-notes to create or update the running implementation-notes HTML for this spec."
+  short_description: "Keep a durable ledger when one is justified"
+  default_prompt: "Use $maintain-implementation-notes to decide whether this work needs a separate decision ledger, then create or update it only if justified."

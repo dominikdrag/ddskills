@@ -1,23 +1,25 @@
 # Maintain Implementation Notes
 
-Maintain a self-contained HTML decision and evidence ledger while implementing a specification or ticket set.
+Maintain a self-contained HTML decision ledger when a long or ambiguous implementation needs a durable cold-handoff record, or when the user or
+repository explicitly requires one. Routine implementation should use its existing plan, ticket, worklog, feature documentation, Git history, and PR.
 
 The page is for a maintainer catching up without the agent conversation. It records material interpretation, not a chronological transcript of routine edits and commands.
 
 ## What it maintains
 
-Unless the repository defines another convention, the skill creates `<spec-slug>-implementation-notes.html` beside the specification. The ledger
-keeps these sections current:
+When a separate ledger is justified and the repository defines no convention, the skill creates `<spec-slug>-implementation-notes.html` beside the
+specification. It records material information not already owned elsewhere:
 
-- status by ticket or implementation slice;
+- current milestone or handoff state needed to interpret decisions;
 - design decisions made where the specification was ambiguous;
 - intentional deviations and their reasons;
 - trade-offs and rejected alternatives;
 - open questions with impact and a recommended default;
 - repeated issues that may deserve a reusable skill or repository rule;
-- verification evidence with observed results and provenance.
+- verification evidence that establishes a material decision or acceptance claim.
 
-Entries are concise, dated, and traceable to specifications, tickets, source paths, commits, or evidence. Obsolete decisions are marked as superseded instead of silently deleted.
+Updates are batched at meaningful milestones or handoff. The ledger does not mirror routine commands, lane state, plan or ticket status, commit hashes,
+or acceptance text already recorded elsewhere. Obsolete decisions are marked as superseded instead of silently deleted.
 
 ## Multi-agent ownership
 

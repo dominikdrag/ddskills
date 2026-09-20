@@ -2,8 +2,8 @@
 name: run-apple-verification-loop
 description: >-
   Run proportional Apple-platform verification for Xcode, Tuist, tests, snapshots, and runtime QA. Reuse the repository's normal destination and
-  existing DerivedData by default; reserve an exact isolated device lane only when contention, device-specific behavior, runtime evidence, or an
-  explicit request makes it necessary.
+  existing DerivedData by default; keep tests serial unless parallelism is explicitly justified; reserve an exact isolated device lane from a
+  bounded shared pool only when contention, device-specific behavior, runtime evidence, or an explicit request makes it necessary.
 ---
 
 # Run Apple Verification Loop
@@ -38,6 +38,8 @@ For an ordinary compile, unit-test, or targeted integration-test check:
   destination becomes necessary, choose the least specific suitable destination first; selecting a destination does not by itself require fresh
   DerivedData or a persistent evidence directory.
 - Confirm the command's exit status and, for tests, that the intended tests actually executed using terminal output or an existing result bundle.
+- Keep simulator testing serial by default. Pass `-parallel-testing-enabled NO` to a composed `xcodebuild` test command unless the user or a
+  repository-specific gate explicitly opts into parallel workers and accepts temporary XCTest clones.
 - Pass `-collect-test-diagnostics never` to every `xcodebuild test` or `test-without-building` you compose yourself. After any failing test,
   Xcode otherwise blocks for about 600 seconds collecting simulator diagnostics, and snapshot record runs report every written golden as a
   failure, so they always pay it. A repository wrapper may already pass it; check before adding it twice.
@@ -77,8 +79,18 @@ List the selected Xcode's structured device inventory and current leases:
 python3 "$SKILL_DIR/scripts/lane.py" list
 ```
 
-Choose an exact CoreDevice UUID; never substitute a display name. For a physical device, the lease separately records its hardware UDID as the
-Xcode destination ID.
+The inventory labels simulators as `pooled` or `outside-pool`. Configure the machine once with at most three existing simulators; this command does
+not create devices:
+
+```sh
+python3 "$SKILL_DIR/scripts/lane.py" pool \
+  --device-id '<existing-simulator-uuid>' \
+  --device-id '<existing-simulator-uuid>' \
+  --device-id '<existing-simulator-uuid>'
+```
+
+Choose an exact pooled CoreDevice UUID; never substitute a display name. Simulator reservations outside the configured pool fail closed. Physical
+devices remain eligible without entering the simulator pool; their lease separately records the hardware UDID as the Xcode destination ID.
 
 Reserve the device, workspace, DerivedData, and evidence paths with a stable owner such as the Codex task ID:
 
@@ -131,6 +143,9 @@ python3 "$SKILL_DIR/scripts/lane.py" run-xcodebuild \
 
 Omit `--require-executed-tests` for a compile-only command. The guard accepts only the exact leased workspace, destination, DerivedData, and evidence
 paths. Treat the underlying exit code and raw output as authoritative.
+
+The guard adds `-parallel-testing-enabled NO` when a test command omits it. Use `--allow-parallel-testing` only for a deliberate exception whose
+worker count and clone cost are understood; it is not a routine speed toggle.
 
 Use the same lease guard for supported direct operations:
 
@@ -189,3 +204,15 @@ python3 "$SKILL_DIR/scripts/lane.py" release \
 ```
 
 Then explicitly report that the owned Apple verification resources are released. Do not claim or release a lane when the lightweight path was used.
+
+After the last lease is released, the guard runs maintenance at most once every seven days. It removes only shutdown `Clone N of …` directories
+under `~/Library/Developer/XCTestDevices` that are older than seven days, and skips cleanup while another lease or host test process is active. To
+inspect or run the same maintenance manually:
+
+```sh
+python3 "$SKILL_DIR/scripts/lane.py" prune-xctest-devices --older-than-days 7
+python3 "$SKILL_DIR/scripts/lane.py" prune-xctest-devices --older-than-days 7 --apply
+```
+
+The first command is a dry run. The cleanup does not invoke the legacy simulator CLI, does not touch ordinary CoreSimulator devices, and ignores
+non-clone XCTest device directories.

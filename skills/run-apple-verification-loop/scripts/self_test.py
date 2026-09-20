@@ -5,9 +5,11 @@ from __future__ import annotations
 
 import json
 import os
+import plistlib
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -15,6 +17,7 @@ SKILL_DIR = SCRIPT_DIR.parent
 LANE = SCRIPT_DIR / "lane.py"
 DEVICE_A = "11111111-1111-4111-8111-111111111111"
 DEVICE_B = "22222222-2222-4222-8222-222222222222"
+DEVICE_C = "44444444-4444-4444-8444-444444444444"
 PHYSICAL_DEVICE = "33333333-3333-4333-8333-333333333333"
 PHYSICAL_DESTINATION = "00008140-00010D9A2E10801C"
 UNKNOWN_DEVICE = "99999999-9999-4999-8999-999999999999"
@@ -52,6 +55,7 @@ def install_fake_tools(root: Path) -> Path:
                     "devices": [
                         device(DEVICE_A, "Lane A", "simulated", DEVICE_A, "booted"),
                         device(DEVICE_B, "Lane B", "simulated", DEVICE_B, "shutdown"),
+                        device(DEVICE_C, "Outside Pool", "simulated", DEVICE_C, "shutdown"),
                         device(
                             PHYSICAL_DEVICE,
                             "Physical iPhone",
@@ -101,7 +105,9 @@ raise SystemExit(64)
     xcodebuild.write_text(
         """#!/usr/bin/env python3
 import os
+import sys
 
+print("arguments:", " ".join(sys.argv[1:]))
 print("TEST SUCCEEDED" if os.environ.get("FAKE_ZERO_TESTS") else "Executed 1 test")
 """,
         encoding="utf-8",
@@ -251,6 +257,8 @@ def main() -> int:
         device_file = install_fake_tools(root)
         env = os.environ.copy()
         env["CODEX_APPLE_LANE_STATE"] = str(root / "state")
+        env["CODEX_XCTEST_DEVICE_ROOT"] = str(root / "XCTestDevices")
+        env["CODEX_APPLE_TEST_PROCESS_LIST"] = ""
         env["FAKE_DEVICE_FILE"] = str(device_file)
         env["PATH"] = f"{root / 'fake-tools'}{os.pathsep}{env['PATH']}"
 
@@ -260,6 +268,36 @@ def main() -> int:
             raise AssertionError(
                 "inventory did not distinguish simulator and physical devices"
             )
+
+        run(
+            sys.executable,
+            str(LANE),
+            "pool",
+            "--max-size",
+            "2",
+            "--device-id",
+            DEVICE_A,
+            "--device-id",
+            DEVICE_B,
+            env=env,
+            expected=0,
+        )
+        configured = run(
+            sys.executable, str(LANE), "pool", env=env, expected=0
+        )
+        if set(json.loads(configured.stdout)["deviceIdentifiers"]) != {
+            DEVICE_A,
+            DEVICE_B,
+        }:
+            raise AssertionError("configured simulator pool was not preserved")
+
+        outside_pool = reserve(env, root, "owner-c", DEVICE_C, "outside-pool")
+        if outside_pool.wait() != 2:
+            raise AssertionError(
+                "simulator outside the bounded pool was accepted: "
+                f"{outside_pool.communicate()}"
+            )
+        outside_pool.communicate()
 
         unknown = reserve(env, root, "owner-x", UNKNOWN_DEVICE, "unknown")
         if unknown.wait() != 2:
@@ -326,6 +364,18 @@ def main() -> int:
         )
         if "Executed 1 test" not in gate.stdout:
             raise AssertionError("guarded command output was not preserved")
+        if "-parallel-testing-enabled NO" not in gate.stdout:
+            raise AssertionError("guarded test did not default to serial execution")
+
+        parallel_command = gate_command(
+            repo, evidence, exact_destination, "parallel.raw.log"
+        )
+        parallel_command.extend(["-parallel-testing-enabled", "YES"])
+        run(*parallel_command, env=env, expected=2)
+        parallel_command.insert(
+            parallel_command.index("--"), "--allow-parallel-testing"
+        )
+        run(*parallel_command, env=env, expected=0)
 
         run(
             *gate_command(
@@ -493,6 +543,69 @@ def main() -> int:
                 expected=0,
             )
 
+        stale_clone = root / "XCTestDevices" / "55555555-5555-4555-8555-555555555555"
+        stale_clone.mkdir(parents=True)
+        with (stale_clone / "device.plist").open("wb") as file:
+            plistlib.dump(
+                {
+                    "UDID": stale_clone.name,
+                    "name": "Clone 2 of Lane A",
+                    "state": 1,
+                    "isEphemeral": False,
+                },
+                file,
+            )
+        old_time = time.time() - 10 * 24 * 60 * 60
+        os.utime(stale_clone, (old_time, old_time))
+        dry_prune = run(
+            sys.executable,
+            str(LANE),
+            "prune-xctest-devices",
+            "--older-than-days",
+            "7",
+            env=env,
+            expected=0,
+        )
+        if stale_clone.name not in dry_prune.stdout or not stale_clone.exists():
+            raise AssertionError("XCTest prune dry run changed or omitted the clone")
+        run(
+            sys.executable,
+            str(LANE),
+            "prune-xctest-devices",
+            "--older-than-days",
+            "7",
+            "--apply",
+            env=env,
+            expected=0,
+        )
+        if stale_clone.exists():
+            raise AssertionError("eligible stale XCTest clone was not removed")
+
+        periodic_clone = (
+            root / "XCTestDevices" / "77777777-7777-4777-8777-777777777777"
+        )
+        periodic_clone.mkdir(parents=True)
+        with (periodic_clone / "device.plist").open("wb") as file:
+            plistlib.dump(
+                {
+                    "UDID": periodic_clone.name,
+                    "name": "Clone 3 of Lane A",
+                    "state": 1,
+                    "isEphemeral": False,
+                },
+                file,
+            )
+        os.utime(periodic_clone, (old_time, old_time))
+        (root / "state" / "maintenance.json").write_text(
+            json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "lastXCTestPruneAt": "2000-01-01T00:00:00+00:00",
+                }
+            ),
+            encoding="utf-8",
+        )
+
         interactive = reserve(
             env,
             root,
@@ -531,8 +644,12 @@ def main() -> int:
             env=env,
             expected=0,
         )
+        if periodic_clone.exists():
+            raise AssertionError("periodic XCTest clone pruning did not run on release")
 
-        corrupt_lease = root / "state" / "corrupt.json"
+        corrupt_lease = (
+            root / "state" / "66666666-6666-4666-8666-666666666666.json"
+        )
         corrupt_lease.write_text("{", encoding="utf-8")
         run(sys.executable, str(LANE), "list", "--json", env=env, expected=2)
         corrupt_lease.rename(corrupt_lease.with_suffix(".invalid"))
@@ -549,8 +666,9 @@ def main() -> int:
         )
 
     print(
-        "self-test passed: devicectl identity, collisions, device kinds, exact "
-        "destinations, guarded operations, and regression checks"
+        "self-test passed: bounded simulator pool, serial test default, XCTest "
+        "pruning, devicectl identity, collisions, guarded operations, and "
+        "regression checks"
     )
     return 0
 

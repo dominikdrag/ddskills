@@ -8,17 +8,27 @@ import fcntl
 import getpass
 import json
 import os
+import plistlib
 import re
+import shutil
 import subprocess
 import sys
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
 STATE_ENV = "CODEX_APPLE_LANE_STATE"
 DEFAULT_STATE = Path.home() / ".codex" / "state" / "apple-verification-lanes"
+XCTEST_DEVICE_ROOT_ENV = "CODEX_XCTEST_DEVICE_ROOT"
+DEFAULT_XCTEST_DEVICE_ROOT = Path.home() / "Library" / "Developer" / "XCTestDevices"
+DEFAULT_POOL_SIZE = 3
+DEFAULT_PRUNE_DAYS = 7
+DEFAULT_PRUNE_INTERVAL_DAYS = 7
+SHUTDOWN_DEVICE_STATE = 1
+CLONE_NAME_PATTERN = re.compile(r"^Clone [1-9][0-9]* of .+")
+ACTIVE_TEST_PROCESSES = {"xcodebuild", "xctest", "XCTestAgent", "XCTRunner"}
 DEVICECTL_COMMAND = (
     "xcrun",
     "devicectl",
@@ -44,6 +54,20 @@ def now() -> str:
 
 def state_dir() -> Path:
     return Path(os.environ.get(STATE_ENV, DEFAULT_STATE)).expanduser().resolve()
+
+
+def xctest_device_root() -> Path:
+    return Path(
+        os.environ.get(XCTEST_DEVICE_ROOT_ENV, DEFAULT_XCTEST_DEVICE_ROOT)
+    ).expanduser().resolve()
+
+
+def pool_path() -> Path:
+    return state_dir() / "pool.json"
+
+
+def maintenance_path() -> Path:
+    return state_dir() / "maintenance.json"
 
 
 def normalized_uuid(value: str) -> str:
@@ -106,12 +130,57 @@ def active_leases() -> list[dict[str, Any]]:
     leases: list[dict[str, Any]] = []
     for path in sorted(directory.glob("*.json")):
         try:
+            normalized_uuid(path.stem)
+        except ValueError:
+            continue
+        try:
             leases.append(read_lease(path))
         except (OSError, ValueError) as error:
             raise RuntimeError(
                 f"unreadable lease blocks the registry: {path}"
             ) from error
     return leases
+
+
+def read_pool(*, required: bool) -> dict[str, Any] | None:
+    path = pool_path()
+    if not path.exists():
+        if required:
+            raise RuntimeError(
+                "no bounded simulator pool is configured; run lane.py pool "
+                "--device-id <uuid> for at most three existing simulators"
+            )
+        return None
+    payload = read_lease(path)
+    identifiers = payload.get("deviceIdentifiers")
+    maximum = payload.get("maximumSimulatorDevices")
+    if (
+        payload.get("schemaVersion") != 1
+        or not isinstance(identifiers, list)
+        or not identifiers
+        or not isinstance(maximum, int)
+        or maximum < 1
+        or len(identifiers) > maximum
+    ):
+        raise RuntimeError(f"invalid simulator pool document: {path}")
+    normalized = [normalized_uuid(str(identifier)) for identifier in identifiers]
+    if len(set(normalized)) != len(normalized):
+        raise RuntimeError(f"simulator pool contains duplicate identifiers: {path}")
+    return {**payload, "deviceIdentifiers": normalized}
+
+
+def write_json_atomically(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(f"{path.suffix}.{os.getpid()}.tmp")
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as file:
+            json.dump(payload, file, indent=2, sort_keys=True)
+            file.write("\n")
+        os.replace(temporary, path)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
 
 
 def paths_overlap(left: Path, right: Path) -> bool:
@@ -250,6 +319,59 @@ def recheck_leased_device(lease: dict[str, Any]) -> dict[str, str]:
     return device
 
 
+def pool(args: argparse.Namespace) -> int:
+    if not args.device_identifiers:
+        configured = read_pool(required=False)
+        if configured is None:
+            print("no bounded simulator pool is configured")
+            return 1
+        print(json.dumps(configured, indent=2, sort_keys=True))
+        return 0
+
+    identifiers = list(dict.fromkeys(args.device_identifiers))
+    if len(identifiers) > args.max_size:
+        raise ValueError(
+            f"pool has {len(identifiers)} simulators but --max-size is "
+            f"{args.max_size}"
+        )
+
+    devices = []
+    for identifier in identifiers:
+        _, device = exact_device(identifier)
+        if device["kind"] != "simulator":
+            raise ValueError(
+                f"bounded pool accepts simulators only: {identifier} is "
+                f"{device['kind']}"
+            )
+        devices.append(device)
+
+    payload = {
+        "schemaVersion": 1,
+        "maximumSimulatorDevices": args.max_size,
+        "deviceIdentifiers": identifiers,
+        "devices": [
+            {key: device[key] for key in ("identifier", "name", "os")}
+            for device in devices
+        ],
+        "updatedAt": now(),
+    }
+    with registry_lock():
+        active_outside_pool = [
+            lease_identifier(lease)
+            for lease in active_leases()
+            if lease.get("deviceKind") == "simulator"
+            and lease_identifier(lease) not in identifiers
+        ]
+        if active_outside_pool:
+            raise RuntimeError(
+                "cannot replace the pool while simulator leases remain outside it: "
+                + ", ".join(active_outside_pool)
+            )
+        write_json_atomically(pool_path(), payload)
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    return 0
+
+
 def reserve(args: argparse.Namespace) -> int:
     repo = resolved_path(args.repo)
     workspace = resolved_path(args.workspace)
@@ -292,6 +414,13 @@ def reserve(args: argparse.Namespace) -> int:
     }
 
     with registry_lock():
+        if device["kind"] == "simulator":
+            configured_pool = read_pool(required=True)
+            assert configured_pool is not None
+            if device["identifier"] not in configured_pool["deviceIdentifiers"]:
+                raise ValueError(
+                    f"simulator {device['identifier']} is outside the bounded shared pool"
+                )
         for existing in active_leases():
             conflict = collision(existing, proposed)
             if conflict:
@@ -373,7 +502,9 @@ def guarded_log_path(value: str, lease: dict[str, Any]) -> Path:
     return path
 
 
-def validate_xcodebuild(command: list[str], lease: dict[str, Any]) -> list[str]:
+def validate_xcodebuild(
+    command: list[str], lease: dict[str, Any], *, allow_parallel_testing: bool
+) -> list[str]:
     command = command_after_separator(command)
     if Path(command[0]).name != "xcodebuild":
         raise ValueError("guarded command must be xcodebuild")
@@ -396,6 +527,21 @@ def validate_xcodebuild(command: list[str], lease: dict[str, Any]) -> list[str]:
     workspace = resolved_path(required_option(command, "-workspace"))
     if workspace != Path(str(lease["workspace"])):
         raise ValueError(f"-workspace must equal {lease['workspace']}")
+
+    test_actions = {"test", "test-without-building", "build-for-testing"}
+    if test_actions.intersection(command[1:]):
+        parallel_values = option_values(command, "-parallel-testing-enabled")
+        if len(parallel_values) > 1:
+            raise ValueError("command must have at most one -parallel-testing-enabled")
+        if parallel_values:
+            enabled = parallel_values[0].upper() == "YES"
+            if enabled and not allow_parallel_testing:
+                raise ValueError(
+                    "parallel testing requires the explicit "
+                    "--allow-parallel-testing override"
+                )
+        else:
+            command.extend(["-parallel-testing-enabled", "NO"])
     return command
 
 
@@ -499,7 +645,11 @@ def run_xcodebuild(args: argparse.Namespace) -> int:
     lease = owned_lease(args.owner, args.device_identifier)
     log_path = guarded_log_path(args.log, lease)
     recheck_leased_device(lease)
-    command = validate_xcodebuild(list(args.guarded_command), lease)
+    command = validate_xcodebuild(
+        list(args.guarded_command),
+        lease,
+        allow_parallel_testing=args.allow_parallel_testing,
+    )
     return_code, output = stream_command(command, lease, log_path)
     if return_code == 0 and args.require_executed_tests and test_count(output) == 0:
         print(
@@ -532,7 +682,140 @@ def run_devicectl(args: argparse.Namespace) -> int:
     return return_code
 
 
+def active_test_processes() -> list[str]:
+    test_override = os.environ.get("CODEX_APPLE_TEST_PROCESS_LIST")
+    if test_override is not None:
+        if xctest_device_root() == DEFAULT_XCTEST_DEVICE_ROOT:
+            raise RuntimeError(
+                "test process override requires an isolated XCTest device root"
+            )
+        return sorted(
+            process
+            for process in test_override.split(",")
+            if process in ACTIVE_TEST_PROCESSES
+        )
+    result = subprocess.run(
+        ["/bin/ps", "-axo", "comm="], capture_output=True, text=True, check=False
+    )
+    if result.returncode != 0:
+        raise RuntimeError("could not inspect active processes before XCTest pruning")
+    return sorted(
+        {
+            Path(line.strip()).name
+            for line in result.stdout.splitlines()
+            if Path(line.strip()).name in ACTIVE_TEST_PROCESSES
+        }
+    )
+
+
+def xctest_prune_candidates(older_than_days: int) -> list[tuple[Path, str]]:
+    root = xctest_device_root()
+    if not root.exists():
+        return []
+    cutoff = datetime.now(timezone.utc) - timedelta(days=older_than_days)
+    candidates: list[tuple[Path, str]] = []
+    for path in sorted(root.iterdir()):
+        if not path.is_dir() or path.is_symlink():
+            continue
+        try:
+            normalized_uuid(path.name)
+        except ValueError:
+            continue
+        modified = datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
+        if modified > cutoff:
+            continue
+        device_plist = path / "device.plist"
+        if not device_plist.exists():
+            if not any(path.iterdir()):
+                candidates.append((path, "empty orphan"))
+            continue
+        try:
+            with device_plist.open("rb") as file:
+                device = plistlib.load(file)
+        except (OSError, plistlib.InvalidFileException):
+            continue
+        if not isinstance(device, dict) or device.get("state") != SHUTDOWN_DEVICE_STATE:
+            continue
+        name = device.get("name")
+        if isinstance(name, str) and CLONE_NAME_PATTERN.fullmatch(name):
+            candidates.append((path, name))
+    return candidates
+
+
+def perform_xctest_prune(*, older_than_days: int, apply: bool) -> int:
+    if older_than_days < 1:
+        raise ValueError("--older-than-days must be at least 1")
+    with registry_lock():
+        leases = active_leases()
+        if apply and leases:
+            raise RuntimeError(
+                "XCTest pruning requires zero active Apple verification leases"
+            )
+        processes = active_test_processes()
+        if apply and processes:
+            raise RuntimeError(
+                "XCTest pruning blocked by active test processes: "
+                + ", ".join(processes)
+            )
+        candidates = xctest_prune_candidates(older_than_days)
+        for path, name in candidates:
+            print(f"{'remove' if apply else 'would remove'}  {path.name}  {name}")
+        if apply:
+            for path, _ in candidates:
+                shutil.rmtree(path)
+            write_json_atomically(
+                maintenance_path(),
+                {
+                    "schemaVersion": 1,
+                    "lastXCTestPruneAt": now(),
+                    "olderThanDays": older_than_days,
+                    "removed": len(candidates),
+                },
+            )
+    print(
+        f"{'removed' if apply else 'found'} {len(candidates)} stale XCTest "
+        f"device director{'y' if len(candidates) == 1 else 'ies'}"
+    )
+    return 0
+
+
+def prune_xctest_devices(args: argparse.Namespace) -> int:
+    return perform_xctest_prune(
+        older_than_days=args.older_than_days,
+        apply=args.apply,
+    )
+
+
+def maintenance_due() -> bool:
+    path = maintenance_path()
+    if not path.exists():
+        return True
+    try:
+        payload = read_lease(path)
+        value = payload.get("lastXCTestPruneAt")
+        if not isinstance(value, str):
+            return True
+        completed = datetime.fromisoformat(value)
+        if completed.tzinfo is None:
+            return True
+    except (OSError, ValueError):
+        return True
+    return datetime.now(timezone.utc) - completed >= timedelta(
+        days=DEFAULT_PRUNE_INTERVAL_DAYS
+    )
+
+
+def maybe_prune_xctest_devices() -> None:
+    if os.environ.get("CODEX_APPLE_DISABLE_AUTO_PRUNE") == "1" or not maintenance_due():
+        return
+    try:
+        perform_xctest_prune(older_than_days=DEFAULT_PRUNE_DAYS, apply=True)
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"warning: periodic XCTest pruning skipped: {error}", file=sys.stderr)
+
+
 def release(args: argparse.Namespace) -> int:
+    should_run_maintenance = False
     with registry_lock():
         path = lease_path(args.device_identifier)
         if not path.exists():
@@ -547,7 +830,10 @@ def release(args: argparse.Namespace) -> int:
             )
             return 2
         path.unlink()
+        should_run_maintenance = not active_leases()
     print(f"released {args.device_identifier} for {args.owner}")
+    if should_run_maintenance:
+        maybe_prune_xctest_devices()
     return 0
 
 
@@ -576,10 +862,17 @@ def status(args: argparse.Namespace) -> int:
 def list_devices(args: argparse.Namespace) -> int:
     source, devices = discover_devices()
     leases = {lease_identifier(lease): lease for lease in active_leases()}
+    configured_pool = read_pool(required=False)
+    pooled = set(configured_pool["deviceIdentifiers"]) if configured_pool else set()
     if args.json:
         print(
             json.dumps(
-                {"source": source, "devices": devices, "leases": leases},
+                {
+                    "source": source,
+                    "pool": configured_pool,
+                    "devices": devices,
+                    "leases": leases,
+                },
                 indent=2,
                 sort_keys=True,
             )
@@ -599,7 +892,14 @@ def list_devices(args: argparse.Namespace) -> int:
             f"reported={device['reportedBootState']}/"
             f"{device['reportedConnectionState']}"
         )
-        print(f"{identity}  {reported}  {owner}")
+        pool_status = (
+            "physical"
+            if device["kind"] == "physical"
+            else "pooled"
+            if device["identifier"] in pooled
+            else "outside-pool"
+        )
+        print(f"{identity}  {reported}  {pool_status}  {owner}")
     return 0
 
 
@@ -625,6 +925,21 @@ def parser() -> argparse.ArgumentParser:
     )
     list_parser.add_argument("--json", action="store_true")
     list_parser.set_defaults(handler=list_devices)
+
+    pool_parser = commands.add_parser(
+        "pool", help="show or configure the bounded shared simulator pool"
+    )
+    pool_parser.add_argument(
+        "--device-id",
+        dest="device_identifiers",
+        action="append",
+        type=uuid_argument,
+        help="existing simulator CoreDevice UUID; repeat for each pool member",
+    )
+    pool_parser.add_argument(
+        "--max-size", type=int, default=DEFAULT_POOL_SIZE, choices=range(1, 4)
+    )
+    pool_parser.set_defaults(handler=pool)
 
     reserve_parser = commands.add_parser(
         "reserve", help="atomically reserve a verification lane"
@@ -653,6 +968,11 @@ def parser() -> argparse.ArgumentParser:
     xcodebuild_parser.add_argument("--log", required=True)
     xcodebuild_parser.add_argument("--require-executed-tests", action="store_true")
     xcodebuild_parser.add_argument(
+        "--allow-parallel-testing",
+        action="store_true",
+        help="explicitly allow -parallel-testing-enabled YES for this run",
+    )
+    xcodebuild_parser.add_argument(
         "guarded_command", metavar="command", nargs=argparse.REMAINDER
     )
     xcodebuild_parser.set_defaults(handler=run_xcodebuild)
@@ -672,6 +992,20 @@ def parser() -> argparse.ArgumentParser:
     add_device_identifier(status_parser)
     status_parser.add_argument("--json", action="store_true")
     status_parser.set_defaults(handler=status)
+
+    prune_parser = commands.add_parser(
+        "prune-xctest-devices",
+        help="report or remove old shutdown XCTest clone directories",
+    )
+    prune_parser.add_argument(
+        "--older-than-days", type=int, default=DEFAULT_PRUNE_DAYS
+    )
+    prune_parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="remove eligible directories; default is a dry run",
+    )
+    prune_parser.set_defaults(handler=prune_xctest_devices)
 
     release_parser = commands.add_parser("release", help="release an owned lane")
     release_parser.add_argument("--owner", required=True)

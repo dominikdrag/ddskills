@@ -13,8 +13,7 @@ needs exact resource ownership or reproducible device evidence.
 
 ## 1. Read the repository contract
 
-Load the repository's `AGENTS.md` and routed testing, workflow, and agent-QA rules. Repository commands and snapshot gates override generic examples
-here.
+Reuse the repository contract and the routed rules relevant to the requested check. Repository commands, review activation and stopping limits override generic examples here. Ordinary focused checks can use the repository commands without loading this full workflow. Use host-required runners with prepared commands; do not expand the verification scope merely to delegate it.
 
 Do not run Tuist generation merely because verification started. Reuse the existing project or workspace unless it is missing, stale, or the
 repository contract requires regeneration. If generation is necessary, remember that it mutates the checkout and serialize it only when another
@@ -29,8 +28,7 @@ For an ordinary compile, unit-test, or targeted integration-test check:
   exercises the change and its plausible regressions.
 - Do not run every test target or the full test plan by default. Broaden beyond related tests only when the change crosses shared or module
   boundaries, a targeted failure suggests wider impact, the repository or release gate requires it, or the user explicitly asks for broader testing.
-- Reuse the normal Xcode DerivedData location or an already-established repository path. Do not create a task-specific evidence directory, pass a
-  fresh `-derivedDataPath`, add a `-resultBundlePath`, or persist copied logs by default.
+- Reuse the normal Xcode DerivedData location or an established compatible cache. Evidence and cache paths serve different purposes: fresh task logs do not require a fresh cache. Follow the repository's raw-log requirements and command options; add a result bundle only when useful to the claim.
 - Do not clean or delete existing DerivedData as part of routine verification.
 - Do not discover, boot, reserve, or pin a simulator merely because the command uses Xcode. Let the repository command or Xcode use its established
   destination.
@@ -40,11 +38,8 @@ For an ordinary compile, unit-test, or targeted integration-test check:
 - Confirm the command's exit status and, for tests, that the intended tests actually executed using terminal output or an existing result bundle.
 - Keep simulator testing serial by default. Pass `-parallel-testing-enabled NO` to a composed `xcodebuild` test command unless the user or a
   repository-specific gate explicitly opts into parallel workers and accepts temporary XCTest clones.
-- Pass `-collect-test-diagnostics never` to every `xcodebuild test` or `test-without-building` you compose yourself. After any failing test,
-  Xcode otherwise blocks for about 600 seconds collecting simulator diagnostics, and snapshot record runs report every written golden as a
-  failure, so they always pay it. A repository wrapper may already pass it; check before adding it twice.
-- Verify several test targets in one `xcodebuild` invocation (`-only-testing:` per target on an umbrella scheme) rather than one invocation per
-  scheme; each invocation re-pays build-graph resolution and roughly ten seconds of test-runner startup.
+- For composed `xcodebuild test` or `test-without-building` commands, default to `-collect-test-diagnostics never` to avoid unneeded collection. Request supported diagnostics explicitly when investigating a failure; check the selected Xcode's help for accepted values. Prefer the repository wrapper's option and do not add the flag twice. Do not assume a fixed collection delay without measurement.
+- Combine related test targets in one invocation when an existing umbrella scheme supports their scope. Do not introduce a new scheme or broaden coverage merely to reduce command count.
 
 Avoid hypothetical isolation. Multiple repositories, worktrees, or agents on the machine are not alone a reason to create a lane; there must be an
 actual overlapping resource, observed collision, or verification requirement that shared state cannot satisfy.
@@ -65,13 +60,7 @@ State the concrete reason for escalation. Do not create an isolated lane as a pr
 
 ## 4. Reserve an exact lane only after escalation
 
-Resolve the installed skill directory once per shell. It is the directory this `SKILL.md` was loaded from: for Claude Code that is
-`~/.agents/skills/run-apple-verification-loop`, for Codex `~/.codex/skills/run-apple-verification-loop`.
-
-```sh
-SKILL_DIR=~/.agents/skills/run-apple-verification-loop   # Claude Code
-# SKILL_DIR=~/.codex/skills/run-apple-verification-loop  # Codex
-```
+Resolve `SKILL_DIR` to the directory containing the loaded `SKILL.md`, including when it is a repository-local copy. Do not assume a particular global installation path. Reuse a valid reservation supplied by the parent instead of reserving the same resources again.
 
 List the selected Xcode's structured device inventory and current leases:
 
@@ -102,7 +91,7 @@ python3 "$SKILL_DIR/scripts/lane.py" reserve \
   --device-id '<exact-CoreDevice-UUID>' \
   --repo "$PWD" \
   --workspace "$PWD/<App>.xcworkspace" \
-  --derived-data "$PWD/<evidence-dir>/DerivedData" \
+  --derived-data '<owned-compatible-cache>' \
   --evidence "$PWD/<evidence-dir>"
 ```
 
@@ -138,7 +127,7 @@ python3 "$SKILL_DIR/scripts/lane.py" run-xcodebuild \
     -workspace '<App>.xcworkspace' \
     -scheme '<scheme>' \
     -destination "$destination" \
-    -derivedDataPath "$evidence/DerivedData"
+    -derivedDataPath '<cache-path-from-lease>' -collect-test-diagnostics never
 ```
 
 Omit `--require-executed-tests` for a compile-only command. The guard accepts only the exact leased workspace, destination, DerivedData, and evidence
@@ -176,12 +165,11 @@ Read [references/live-smoke.md](references/live-smoke.md) before Device Hub inte
 required only for claims about visible Device Hub state, destination-picker changes, and user-visible runtime behavior.
 
 Read [references/evidence-contract.md](references/evidence-contract.md) when an isolated lane, snapshot, Device Hub, or runtime evidence is in scope.
-For a repository-native snapshot gate whose output does not depend on a fixed destination, keep the lightweight path and existing DerivedData. For
-each snapshot filter:
+For a repository-native snapshot gate whose output does not depend on a fixed destination, keep the lightweight path and existing DerivedData. For existing baselines, compare the requested filters. For an intentional baseline change:
 
-1. Record with the repository's normal destination, or the owned exact device only when stable device identity is required.
+1. Record only the affected filters using the required destination.
 2. Inspect every changed image at rendered size.
-3. Rerun the same filter with recording disabled and confirm the test executed.
+3. Rerun those filters with recording disabled and confirm the tests executed.
 
 Set `SNAPSHOT_ARTIFACTS` for swift-snapshot-testing (as `TEST_RUNNER_SNAPSHOT_ARTIFACTS` under `xcodebuild`) so newly rendered failure images
 land in the evidence directory instead of the simulator's private tmp folder, and export the reference, failure, and difference attachments with
@@ -196,7 +184,7 @@ still valid; do not promote those results into UI, physical-device, or runtime c
 Before declaring success, inspect the scoped diff and dirty worktree, confirm intended tests executed, and report the exact verification boundary.
 Reject partial, stale, wrong-binary, wrong-scenario, or wrong-device evidence.
 
-If and only if a lane was reserved, release it on success, failure, or interruption:
+Release reservations created by this task on success, failure or interruption. A parent-supplied reservation remains owned by the parent; return resource status instead of releasing it:
 
 ```sh
 python3 "$SKILL_DIR/scripts/lane.py" release \

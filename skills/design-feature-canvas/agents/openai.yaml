@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Feature Canvas"
+  short_description: "Mock up proposed app features on one Claude Design canvas"
+  default_prompt: "Use $design-feature-canvas to turn the shortlisted features into a Claude Design canvas with one row of phone artboards per feature."

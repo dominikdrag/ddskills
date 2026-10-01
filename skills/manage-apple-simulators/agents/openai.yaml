@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manage Apple Simulators"
+  short_description: "Claim a private simulator or device for one task"
+  default_prompt: "Use $manage-apple-simulators to claim a simulator for this task, use its UDID for every run, and release it when the task ends."

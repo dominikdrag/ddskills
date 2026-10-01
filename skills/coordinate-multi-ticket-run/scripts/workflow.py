@@ -475,7 +475,7 @@ def closure_gaps(
             if not str(runtime.get(field, "")).strip():
                 gaps.append("runtime evidence lacks {}".format(field))
         if runtime.get("laneOwned") is not True:
-            gaps.append("runtime evidence is not from an owned lane")
+            gaps.append("runtime evidence is not from a claimed device")
 
     apple_lane = evidence.get("appleLane", {})
     if not isinstance(apple_lane, dict):
@@ -483,7 +483,7 @@ def closure_gaps(
     elif apple_lane.get("required") not in {True, False}:
         gaps.append("appleLane.required must be explicit")
     elif apple_lane.get("required") is True and apple_lane.get("released") is not True:
-        gaps.append("Apple verification lane remains leased")
+        gaps.append("claimed Apple simulator or device was not released")
 
     scope = evidence.get("scope", {})
     if not isinstance(scope, dict) or scope.get("reviewed") is not True:

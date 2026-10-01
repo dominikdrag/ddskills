@@ -134,7 +134,7 @@ class WorkflowTests(unittest.TestCase):
             "no executed tests",
             "snapshot inspected is not proven",
             "runtime evidence is incomplete",
-            "Apple verification lane remains leased",
+            "claimed Apple simulator or device was not released",
             "contains unrelated work",
             "material omissions",
             "lacks authority",

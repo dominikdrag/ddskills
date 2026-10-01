@@ -63,8 +63,10 @@ For each ticket, record:
 - `criteria`: every checked criterion with a named `observation` and `location`.
 - `checks`: required commands with `exitCode`, raw-log `location`, and positive `executedTests` when `requiresExecutedTests` is true.
 - `snapshots`: when required, `recorded`, `inspected`, `compared`, `clean`, and `location`.
-- `runtime`: when required, `complete`, `binary`, `scenario`, `device`, owned-lane proof, and `location`.
-- `appleLane`: when required, `released`.
+- `runtime`: when required, `complete`, `binary`, `scenario`, `device`, `laneOwned` (the device was this run's claimed simulator or device), and
+  `location`.
+- `appleLane`: when required, `released` (every claimed Apple simulator or device was released through `$manage-apple-simulators`). These field
+  names stay for compatibility.
 - `scope`: `reviewed` and whether it contains `unrelatedChanges`.
 - `notes`: optional. Omit it or set `required: false` when no separate implementation-notes ledger was selected. When `required: true`, record
   `reviewed` and any `materialOmissions`. Legacy state with `reviewed` but no `required` remains valid and is treated as selected notes.

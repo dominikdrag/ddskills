@@ -6,9 +6,10 @@ Read this file and `references/role-policy.md` only after a ticket reaches `acce
 > Audit `<ticket>` using `<evidence>`, the selected decision record `<decision-record>` when required, normalized state `<state>`, workflow `<workflow>`,
 > the coordinator report, actual diff or commits, and
 > current repository state. For every acceptance criterion, report its ticket marking, named observation, evidence location, and pass or gap. Confirm
-> required tests executed with positive counts and authoritative exits; snapshot record-inspect-compare completion; runtime provenance; Apple lane
-> release; changed-path scope; assignment ownership and unresolved dependencies; authorized status, worklog, and commit changes; and preservation of
-> unrelated dirty state. Reconcile the normalized projection against source artifacts. Send every observed gap to `<ticket-coordinator-target>`. List
+> required tests executed with positive counts and authoritative exits; snapshot record-inspect-compare completion; runtime provenance; release of
+> every claimed Apple simulator or device; changed-path scope; assignment ownership and unresolved dependencies; authorized status, worklog, and
+> commit changes; and preservation of unrelated dirty state. Reconcile the normalized projection against source artifacts. Send every observed gap
+> to `<ticket-coordinator-target>`. List
 > every criterion lacking sufficient evidence and every uncommitted or unrelated change. Return findings to the run coordinator so it can mark this
 > assignment complete, record the observations, and run `<workflow> validate --state <state> --closure <ticket-id>`. Make no edits, commits, status
 > changes, or device actions.

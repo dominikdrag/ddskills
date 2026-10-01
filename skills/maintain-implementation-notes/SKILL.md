@@ -20,8 +20,8 @@ Use a separate ledger only when at least one condition is true:
 - a long or multi-session implementation has material ambiguity, deviations, trade-offs, or open questions that a maintainer must recover cold, and
   no existing plan, ticket, worklog, ADR, or feature document already owns that information.
 
-Do not create or update a ledger merely because implementation is occurring, a task has several slices, agents are delegated, tests ran, a resource
-lane changed state, or commits were created. Routine fixes, straightforward single-ticket work, documentation/configuration edits, and short tasks
+Do not create or update a ledger merely because implementation is occurring, a task has several slices, agents are delegated, tests ran, a device
+was claimed or released, or commits were created. Routine fixes, straightforward single-ticket work, documentation/configuration edits, and short tasks
 should use their existing task plan and repository records. When another artifact is authoritative, update that artifact instead of mirroring it.
 
 If no condition applies, stop without loading the HTML template or creating a file.
@@ -72,7 +72,7 @@ commit hashes, and evidence paths when they improve traceability. Distinguish ob
 - Never delete history silently. Mark an obsolete entry as superseded and link or name its replacement.
 - Use `None recorded` when a section is empty so absence is explicit.
 - Do not duplicate routine file changes, test invocations, or commit messages unless they carry a decision or acceptance observation.
-- Do not mirror plan status, ticket state, worklog entries, resource-lane lifecycle, or the same acceptance text into this page.
+- Do not mirror plan status, ticket state, worklog entries, device claim lifecycle, or the same acceptance text into this page.
 - Do not record secrets, credentials, private content, raw user data, or sensitive payloads.
 - Do not create a later bookkeeping edit merely to add commit hashes. Git history or PR metadata owns exact hashes.
 

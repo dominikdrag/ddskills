@@ -2,13 +2,13 @@
 
 Agent workflows from my development practice: verifying Apple apps, transcribing recordings locally, and keeping implementation decisions readable after the conversation ends.
 
-Eight skills with instructions, executable helpers, templates, and tests. Built around Codex; platform and tool requirements vary by skill.
+Nine skills with instructions, executable helpers, templates, and tests. Built around Codex; platform and tool requirements vary by skill.
 
 ## Start here
 
 | If you want to… | Try | What it produces |
 | --- | --- | --- |
-| Verify an Apple app change with appropriate tests and clear evidence | [run-apple-verification-loop](skills/run-apple-verification-loop/README.md) | Focused verification; guarded device lanes when isolation is needed |
+| Verify an Apple app change with appropriate tests and clear evidence | [run-apple-verification-loop](skills/run-apple-verification-loop/README.md) | Focused checks with proof that tests ran, on the agent's own claimed simulator when one is needed |
 | Turn a completed recording into a local, speaker-labelled transcript | [transcribe-diarize](skills/transcribe-diarize/SKILL.md) | Timestamped Markdown and structured speaker turns |
 | Understand why an agent implemented a feature a particular way | [maintain-implementation-notes](skills/maintain-implementation-notes/README.md) | One self-contained HTML page of decisions, questions, and verification evidence |
 
@@ -54,7 +54,8 @@ Installation copies the skill packages; it does not install their runtime depend
 | Skill | Use it for | Requirements |
 | --- | --- | --- |
 | [maintain-implementation-notes](skills/maintain-implementation-notes/README.md) | An optional durable decision record for long or ambiguous specification work | File access; a browser for visual review |
-| [run-apple-verification-loop](skills/run-apple-verification-loop/README.md) | Proportional Apple tests, snapshots, and runtime verification | macOS, Xcode and Python 3; Device Hub and Computer Use for the documented interactive lane |
+| [run-apple-verification-loop](skills/run-apple-verification-loop/README.md) | Proportional Apple tests, snapshots, and runtime verification | macOS, Xcode and Python 3; manage-apple-simulators for tests, snapshots, and runtime checks; Device Hub and Computer Use for interactive QA |
+| [manage-apple-simulators](skills/manage-apple-simulators/README.md) | A fresh simulator per agent task, physical device claims, and cleanup, so parallel agents never share a device | macOS, Xcode (`simctl`, `devicectl`) and Python 3; Device Hub and Computer Use only for interactive QA |
 | [transcribe-diarize](skills/transcribe-diarize/SKILL.md) | Completed-file transcription and diarization on the Mac | Apple Silicon, Python 3, Git, Swift, FFmpeg; public model/runtime downloads; WhisperKit CLI for that engine |
 | [orchestrate-implementation-run](skills/orchestrate-implementation-run/SKILL.md) | Several independent implementation slices with one integration owner | Agent delegation; optional implementation-notes skill for justified ledgers; Apple verification skill for Apple work |
 | [coordinate-multi-ticket-run](skills/coordinate-multi-ticket-run/README.md) | Dependency-ordered tickets, checked state transitions, and interrupted-run recovery | Python 3, agent delegation; optional implementation-notes skill for justified ledgers; Apple verification skill for Apple work |
@@ -62,7 +63,7 @@ Installation copies the skill packages; it does not install their runtime depend
 | [design-feature-canvas](skills/design-feature-canvas/SKILL.md) | Mockups of proposed app features on one Claude Design canvas: a row of phone artboards per feature, verdict notes and an overview | Claude with the Artifact tool and the Claude Design canvas type; Python 3 for the lint and index helpers; agent delegation for parallel drawing |
 | [social-campaign-lab](skills/social-campaign-lab/SKILL.md) | Parallel static campaign concepts, review decisions, and a validated handoff | Node.js and Codex task creation/coordination tools; authentic product captures |
 
-The Markdown format can be read by other agents, but host-specific delegation, task, and UI tools need adaptation. Model selection follows the user's or host's configuration; no particular model ID is required. Install the supporting skills listed above when choosing an orchestration skill individually.
+The Markdown format can be read by other agents, but host-specific delegation, task, and UI tools need adaptation. Model selection follows the user's or host's configuration; no particular model ID is required. Install the supporting skills listed above when choosing an orchestration skill individually. Install run-apple-verification-loop and manage-apple-simulators together: the first claims its simulators and devices through the second.
 
 ## Worked example: an app campaign
 
@@ -79,12 +80,13 @@ From a checkout of this repository:
 ```sh
 python3 skills/coordinate-multi-ticket-run/scripts/self_test.py
 python3 skills/run-apple-verification-loop/scripts/self_test.py
+python3 skills/manage-apple-simulators/scripts/self_test.py
 python3 -m unittest discover -s skills/transcribe-diarize/tests -v
 python3 skills/design-feature-canvas/scripts/self_test.py
 node --test skills/social-campaign-lab/scripts/campaign-assets.test.mjs
 ```
 
-These checks exercise workflow transitions, device guards with fake tools, transcription routing/alignment with fixtures, and campaign artifact rules. They do not run an Apple app, measure transcription accuracy, or evaluate an agent's creative judgment.
+These checks exercise workflow transitions, test-log counting with fixtures, simulator claims and cleanup with a fake `xcrun`, transcription routing/alignment with fixtures, canvas artboard lint and index building, and campaign artifact rules. They do not run an Apple app, create real simulators, measure transcription accuracy, or evaluate an agent's creative judgment.
 
 ## Maintenance and license
 

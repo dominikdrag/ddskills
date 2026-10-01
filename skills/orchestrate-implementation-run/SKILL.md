@@ -52,6 +52,8 @@ Give every leaf one self-contained assignment containing:
 - repository root, relevant rules, specification sections, and acceptance observations;
 - owned files or seam, read-only or edit scope, and exact authority;
 - dependencies, canonical teammate recipients, required checks, evidence location, and return format;
+- for Apple tests or runtime checks, the `--label` the leaf passes to every `$manage-apple-simulators` claim and release (for example its slice
+  name), or the parent claim it uses without releasing;
 - preservation of unrelated dirty state and material decisions for the selected authoritative record.
 
 Name information dependencies. Have a leaf message the named teammate and coordinator when it produces or needs dependency information, then summarize
@@ -79,7 +81,7 @@ recipient, and the coordinator remains available to the user.
 6. Integrate a coherent slice in the coordinator. A leaf report is not a commit boundary: include every change required for one reviewable behavior or
    contract, and exclude incomplete or unrelated work.
 7. Run the slice's focused checks. At accepted milestones, update only the authoritative record with material decisions, deviations, and blockers.
-   Keep routine commands, lane state, commit hashes, and duplicated acceptance text in their existing evidence, Git, or PR owners.
+   Keep routine commands, device claim state, commit hashes, and duplicated acceptance text in their existing evidence, Git, or PR owners.
 8. When commits are authorized, land the accepted slice before assigning dependent work:
    - inspect `git status` against the recorded starting state and identify the exact owned files or patches;
    - stage only that scope, never unrelated dirty state or a broad add whose contents were not inspected;
@@ -109,19 +111,19 @@ Run the smallest relevant checks first and broaden only when the changed contrac
 retain the underlying results.
 
 For any Tuist, Xcode, `xcodebuild`, Simulator, Device Hub, Playbook snapshot, or Apple runtime-QA branch, invoke `$run-apple-verification-loop`.
-Require its evidence and lane-release completion criteria before closure.
+Before closure, require its evidence and the release of every claimed simulator or device through `$manage-apple-simulators`.
 
 Close against the acceptance map:
 
 - inspect the commit range from the recorded starting `HEAD`, each committed slice, and the current worktree;
 - compare committed paths with `git status`, preserving recorded unrelated changes and identifying any intended scope left uncommitted;
 - map every acceptance criterion to an observed result or explicit blocker;
-- confirm every required test executed and every Apple lane was released;
+- confirm every required test executed and every claimed Apple simulator or device was released;
 - when a separate implementation-notes page was selected and changed, validate it with `$maintain-implementation-notes`; do not create final hash
   bookkeeping;
 - report committed hashes and summaries in order, the checks and evidence for each slice, remaining worktree changes, blockers, and exact verification
   limits. When authority was absent, state that no commits were created and report the exact uncommitted scope instead.
 
-**Complete the run when:** every acceptance criterion has an observed result or recorded blocker, every required resource is released, the scoped
-worktree and authoritative record agree with the implemented scope, every intended authorized change is committed or explicitly blocked, and no
-active assignment remains unresolved.
+**Complete the run when:** every acceptance criterion has an observed result or recorded blocker, every claimed simulator, device, or other
+resource is released, the scoped worktree and authoritative record agree with the implemented scope, every intended authorized change is committed
+or explicitly blocked, and no active assignment remains unresolved.

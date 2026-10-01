@@ -18,7 +18,7 @@ specification. It records material information not already owned elsewhere:
 - repeated issues that may deserve a reusable skill or repository rule;
 - verification evidence that establishes a material decision or acceptance claim.
 
-Updates are batched at meaningful milestones or handoff. The ledger does not mirror routine commands, lane state, plan or ticket status, commit hashes,
+Updates are batched at meaningful milestones or handoff. The ledger does not mirror routine commands, device claim state, plan or ticket status, commit hashes,
 or acceptance text already recorded elsewhere. Obsolete decisions are marked as superseded instead of silently deleted.
 
 ## Multi-agent ownership

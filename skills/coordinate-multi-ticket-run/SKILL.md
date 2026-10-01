@@ -59,7 +59,7 @@ record the reason in the ledger before spawning.
 
 Because agents start with fresh task context, make each assignment self-contained. Include the objective; canonical specification, ticket, selected
 decision record when any, state, workflow, evidence, and repository paths; frontier and dependency state; current commits and verification state; owned and protected paths or
-seams; allowed edits, commits, device or external actions; lane requirements; safety boundaries; named recipients; and the required report shape.
+seams; allowed edits, commits, device or external actions; the Apple simulator `--label` (or the parent claim to use without releasing); safety boundaries; named recipients; and the required report shape.
 Fresh agents still receive platform and repository scaffolding, but do not assume they know any task-specific decision from the parent conversation.
 After each action, validate `run.json` again.
 
@@ -79,7 +79,8 @@ Before spawning:
 
 The run coordinator owns `run.json` between tickets; the active ticket coordinator owns assignment and evidence updates during its ticket. When useful,
 the ticket coordinator reads [leaf agent contracts](references/leaf-agents.md) and delegates only validated, non-overlapping assignments. For Apple build,
-test, Simulator, Device Hub, Playbook snapshot, or runtime QA work, use `$run-apple-verification-loop` and release the lane on every outcome.
+test, Simulator, Device Hub, Playbook snapshot, or runtime QA work, use `$run-apple-verification-loop` and release every claimed simulator or device
+through `$manage-apple-simulators` on every outcome.
 
 **Complete when:** the ticket reaches `acceptance`, an interruption is persisted with `workflow.py interrupt`, or an explicit blocker is recorded in both
 source artifacts and `run.json`.
@@ -88,7 +89,7 @@ source artifacts and `run.json`.
 
 For `spawn_acceptance_checker`, read [the acceptance checker contract](references/acceptance-checker.md), pass the spawn gate with its active assignment,
 and spawn a fresh read-only checker with `fork_turns: "none"`. The checker inspects the actual ticket, run state, evidence, selected decision record when
-required, tests, diff or commits, repository state, and Apple lane release.
+required, tests, diff or commits, repository state, and release of every claimed Apple simulator or device.
 
 After its report, mark the checker assignment `done`, record every observation or gap, and run
 `workflow.py validate --state <state> --closure <ticket>`. Route a failing audit to `gap` with every observed gap. Route a passing audit to
@@ -101,7 +102,7 @@ corroborate acceptance observations, and execute the guarded transition. The eng
 
 ## Preserve recoverable truth
 
-Persist authoritative ticket/worklog state, scoped commits, raw logs, screenshots, `run.json`, JSONL events, Apple lane manifests, and a separate
+Persist authoritative ticket/worklog state, scoped commits, raw logs, screenshots, `run.json`, JSONL events, claimed Apple device details, and a separate
 implementation-notes ledger only when one was selected. Recover from those artifacts rather than inherited conversation, agent context, or completion
 labels. Recovery assignments remain self-contained and use `fork_turns: "none"`. Perform authorized bookkeeping after the closure gate passes.
 Ticket coordinators own authorized green implementation commits. Do not create notes-only or hash-only bookkeeping commits.

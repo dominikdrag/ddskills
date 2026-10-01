@@ -1,682 +1,315 @@
 #!/usr/bin/env python3
-"""Forward-test device authority, lease isolation, and guarded commands."""
+"""Fixture tests for check_test_log.py.
+
+Fixture lines come from real Xcode 27 xcodebuild logs, trimmed to the lines the
+checker reads; paths and project-specific messages are removed. XCTest failures
+use the real form "with N failures (0 unexpected)": assertion and snapshot
+failures are not "unexpected". Lines whose real form was not available (XCTest
+skips, parallel clone lines) follow the same xcodebuild formats.
+"""
 
 from __future__ import annotations
 
 import json
-import os
-import plistlib
-import re
 import subprocess
 import sys
 import tempfile
-import time
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-SKILL_DIR = SCRIPT_DIR.parent
-LANE = SCRIPT_DIR / "lane.py"
-DEVICE_A = "11111111-1111-4111-8111-111111111111"
-DEVICE_B = "22222222-2222-4222-8222-222222222222"
-DEVICE_C = "44444444-4444-4444-8444-444444444444"
-PHYSICAL_DEVICE = "33333333-3333-4333-8333-333333333333"
-PHYSICAL_DESTINATION = "00008140-00010D9A2E10801C"
-UNKNOWN_DEVICE = "99999999-9999-4999-8999-999999999999"
+CHECKER = Path(__file__).resolve().parent / "check_test_log.py"
+
+XCTEST_ONLY = """\
+Test Suite 'Selected tests' started at 2026-09-13 11:39:53.941.
+Test Suite 'AppFeatureTests.xctest' started at 2026-09-13 11:39:53.945.
+Test Suite 'AppRootViewModelTests' started at 2026-09-13 11:39:53.945.
+Test Case '-[AppFeatureTests.AppRootViewModelTests test_onAppear_showsIntroWhenRequired]' started.
+Test Case '-[AppFeatureTests.AppRootViewModelTests test_onAppear_showsIntroWhenRequired]' passed (0.001 seconds).
+Test Suite 'AppRootViewModelTests' passed at 2026-09-13 11:39:53.993.
+\t Executed 6 tests, with 0 failures (0 unexpected) in 0.045 (0.048) seconds
+Test Suite 'IntroFlowViewModelTests' started at 2026-09-13 11:39:53.993.
+Test Suite 'IntroFlowViewModelTests' passed at 2026-09-13 11:39:54.001.
+\t Executed 7 tests, with 0 failures (0 unexpected) in 0.006 (0.008) seconds
+Test Suite 'AppFeatureTests.xctest' passed at 2026-09-13 11:39:54.002.
+\t Executed 13 tests, with 0 failures (0 unexpected) in 0.051 (0.056) seconds
+Test Suite 'Selected tests' passed at 2026-09-13 11:39:54.002.
+\t Executed 13 tests, with 0 failures (0 unexpected) in 0.051 (0.061) seconds
+
+** TEST SUCCEEDED **
+"""
+
+EMPTY_XCTEST_BUNDLE = """\
+Test Suite 'Selected tests' started at 2026-09-13 12:30:22.866.
+Test Suite 'DatabaseTests.xctest' started at 2026-09-13 12:30:22.866.
+Test Suite 'DatabaseTests.xctest' passed at 2026-09-13 12:30:22.866.
+\t Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-09-13 12:30:22.867.
+\t Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64-apple-ios17.0-simulator
+"""
+
+SWIFT_TESTING_ONLY = EMPTY_XCTEST_BUNDLE + """\
+◇ Suite "DynamicFetch" started.
+✔ Suite "DynamicFetch" passed after 0.311 seconds.
+✔ Test run with 7 tests in 1 suite passed after 0.311 seconds.
+
+** TEST SUCCEEDED **
+"""
+
+SWIFT_TESTING_FAILURE_BODY = EMPTY_XCTEST_BUNDLE + """\
+◇ Suite "BottomConfirmSection" started.
+◇ Test "summary text shows singular when count is one" started.
+✔ Test "summary text shows singular when count is one" passed after 0.001 seconds.
+◇ Test "accessibility label correctly pluralizes dose count" started.
+◇ Test case passing 2 arguments count → 1, expectedLabel → "Confirm logging 1 dose" to "accessibility label correctly pluralizes dose count" started.
+✘ Test "accessibility label correctly pluralizes dose count" recorded an issue with 2 arguments count → 1, expectedLabel → "Confirm logging 1 dose" at BottomConfirmSectionTests.swift:158:6: Caught error
+✘ Suite "BottomConfirmSection" failed after 0.289 seconds with 3 issues.
+✘ Test run with 10 tests in 1 suite failed after 0.290 seconds with 3 issues.
+"""
+
+SWIFT_TESTING_FAILURE = SWIFT_TESTING_FAILURE_BODY + """\
+
+Failing tests:
+\t-[BottomConfirmSectionTests accessibilityLabelPluralization(count:expectedLabel:)]
+
+** TEST FAILED **
+"""
+
+XCTEST_FAILURE_BODY = """\
+Test Suite 'Selected tests' started at 2026-09-13 11:39:53.941.
+Test Case '-[AppFeatureTests.IntroFlowViewModelTests test_replay_skipRecordsNothing]' started.
+Test Case '-[AppFeatureTests.IntroFlowViewModelTests test_replay_skipRecordsNothing]' failed (0.002 seconds).
+Test Suite 'IntroFlowViewModelTests' failed at 2026-09-13 11:39:54.001.
+\t Executed 7 tests, with 1 failure (0 unexpected) in 0.006 (0.008) seconds
+Test Suite 'Selected tests' failed at 2026-09-13 11:39:54.002.
+\t Executed 13 tests, with 1 failure (0 unexpected) in 0.051 (0.061) seconds
+"""
+
+XCTEST_FAILURE = XCTEST_FAILURE_BODY + "\n** TEST FAILED **\n"
+
+XCTEST_SKIPPED = """\
+Test Suite 'Selected tests' passed at 2026-09-13 11:39:54.002.
+\t Executed 13 tests, with 2 tests skipped and 0 failures (0 unexpected) in 0.051 (0.061) seconds
+
+** TEST SUCCEEDED **
+"""
+
+XCTEST_ALL_SKIPPED = """\
+Test Suite 'Selected tests' passed at 2026-09-13 11:39:54.002.
+\t Executed 1 test, with 1 test skipped and 0 failures (0 unexpected) in 0.000 (0.001) seconds
+
+** TEST SUCCEEDED **
+"""
+
+PARALLEL_CLONES = """\
+Test case 'AppRootViewModelTests.test_onAppear_showsIntroWhenRequired()' passed on 'Clone 1 of agent-sim 3f2a9c1d iPhone 17 Pro 27.0 - DoseWise (72588)' (0.001 seconds)
+Test case 'AppRootViewModelTests.test_completeIntro_landsOnTodayWithoutMedicationHandoff()' passed on 'Clone 2 of agent-sim 3f2a9c1d iPhone 17 Pro 27.0 - DoseWise (72590)' (0.011 seconds)
+Test case 'IntroFlowViewModelTests.test_replay_skipRecordsNothing()' passed on 'Clone 1 of agent-sim 3f2a9c1d iPhone 17 Pro 27.0 - DoseWise (72588)' (0.001 seconds)
+Test case 'IntroFlowViewModelTests.test_replay_skipRecordsNothing()' passed on 'Clone 2 of agent-sim 3f2a9c1d iPhone 17 Pro 27.0 - DoseWise (72590)' (0.001 seconds)
+Test case 'IntroFlowViewModelTests.test_skipIsOfferedEverywhereExceptSendOff()' skipped on 'Clone 2 of agent-sim 3f2a9c1d iPhone 17 Pro 27.0 - DoseWise (72590)' (0.000 seconds)
+
+** TEST SUCCEEDED **
+"""
+
+PARALLEL_CLONES_FAILURE = """\
+Test case 'AppRootViewModelTests.test_onAppear_showsIntroWhenRequired()' passed on 'Clone 1 of agent-sim 3f2a9c1d iPhone 17 Pro 27.0 - DoseWise (72588)' (0.001 seconds)
+Test case 'IntroFlowViewModelTests.test_replay_skipRecordsNothing()' failed on 'Clone 2 of agent-sim 3f2a9c1d iPhone 17 Pro 27.0 - DoseWise (72590)' (0.004 seconds)
+
+** TEST FAILED **
+"""
+
+ZERO_TESTS = EMPTY_XCTEST_BUNDLE + """\
+◇ Suite "Adherence Analytics UI" started.
+✔ Suite "Adherence Analytics UI" passed after 0.001 seconds.
+✔ Test run with 0 tests in 1 suite passed after 0.002 seconds.
+
+** TEST SUCCEEDED **
+"""
+
+TEST_BUILD_FAILURE = """\
+Example.swift:12:14: error: missing argument for parameter 'value' in call
+
+Testing failed:
+\tMissing argument for parameter 'value' in call
+\tTesting cancelled because the build failed.
+
+** TEST FAILED **
 
 
-def device(
-    identifier: str, name: str, reality: str, destination: str, state: str
-) -> dict[str, object]:
-    return {
-        "identifier": identifier,
-        "properties": {
-            "connection": {
-                "state": "connected" if state == "booted" else "disconnected"
-            },
-            "hardware": {
-                "platform": "iOS",
-                "reality": reality,
-                "udid": destination,
-            },
-            "software": {"osVersionNumber": {"stringValue": "27.0"}},
-            "state": {"bootState": state, "name": name},
-        },
-    }
+The following build commands failed:
+\tTesting workspace Example with scheme SettingsFeature
+(3 failures)
+"""
+
+BUILD_FAILURE = """\
+Example.swift:12:14: error: missing argument for parameter 'value' in call
+
+** BUILD FAILED **
+"""
+
+BUILD_ERROR_ONLY = """\
+/repo/Projects/App/Sources/TestExtensions/SnapshotIntegration.swift:1:19: error: Unable to resolve module dependency: \
+'SnapshotTesting' (in target 'TestExtensions' from project 'App')
+"""
+
+CRASH_RESTART_BODY = EMPTY_XCTEST_BUNDLE + """\
+◇ Suite "Adherence Analytics UI" started.
+◇ Test "AdherenceStatsCard displays correctly with full data" started.
+Swift/arm64-apple-ios-simulator.swiftinterface:3622: Fatal error: Can't unsafeBitCast between types of different sizes
+
+Restarting after unexpected exit, crash, or test timeout; summary will include totals from previous launches.
+
+""" + EMPTY_XCTEST_BUNDLE + """\
+◇ Suite "Adherence Analytics UI" started.
+✔ Test "AdherencePatternView displays different patterns correctly" passed after 0.238 seconds.
+✔ Suite "Adherence Analytics UI" passed after 0.239 seconds.
+✔ Test run with 1 test in 1 suite passed after 0.240 seconds.
+"""
+
+CRASH_RESTART = CRASH_RESTART_BODY + """\
+
+Failing tests:
+\tAdherenceAnalyticsTests.adherenceStatsCardFullData()
+
+** TEST FAILED **
+"""
+
+MIXED_MANY_RUNS = """\
+\t Executed 6 tests, with 0 failures (0 unexpected) in 0.038 (0.041) seconds
+\t Executed 59 tests, with 0 failures (0 unexpected) in 0.351 (0.367) seconds
+\t Executed 59 tests, with 0 failures (0 unexpected) in 0.351 (0.369) seconds
+✘ Test run with 126 tests in 13 suites failed after 4.193 seconds with 3 issues.
+\t Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+✔ Test run with 29 tests in 4 suites passed after 0.266 seconds.
+✔ Test run with 88 tests in 8 suites passed after 0.042 seconds.
+
+** TEST FAILED **
+"""
+
+TWO_PASSING_RUNS = """\
+\t Executed 13 tests, with 0 failures (0 unexpected) in 0.052 (0.060) seconds
+✔ Test run with 22 tests in 1 suite passed after 0.104 seconds.
+✔ Test run with 11 tests in 1 suite passed after 0.007 seconds.
+
+** TEST SUCCEEDED **
+"""
+
+SWIFT_TESTING_SHORT_FORMS = """\
+✔ Test run with 1 test in 1 suite passed after 0.019 seconds.
+✔ Test run with 5 tests passed after 0.002 seconds.
+✔ Test run with 3 tests in 2 suites passed after 0.001 seconds with 1 known issue.
+"""
+
+TEST_EXECUTE_FAILURE = """\
+\t Executed 13 tests, with 0 failures (0 unexpected) in 0.051 (0.061) seconds
+
+** TEST EXECUTE FAILED **
+"""
+
+LINT_ONLY = """\
+Linting Swift files in current working directory
+Done linting! Found 0 violations, 0 serious in 42 files.
+"""
+
+# name, log text, expected exit code, expected report fields
+CASES: List[Tuple[str, str, int, Dict[str, Any]]] = [
+    ("XCTest only", XCTEST_ONLY, 0, {"executed": 13, "markers": ["TEST SUCCEEDED"], "testCases": None}),
+    ("Swift Testing with empty XCTest bundle", SWIFT_TESTING_ONLY, 0,
+     {"executed": 7, "swiftTesting": {"runs": 1, "tests": 7, "failedRuns": 0, "issues": 0}}),
+    ("Swift Testing failure", SWIFT_TESTING_FAILURE, 1,
+     {"executed": 10, "swiftTesting": {"runs": 1, "tests": 10, "failedRuns": 1, "issues": 3}, "testCases": None}),
+    ("Swift Testing failure without marker", SWIFT_TESTING_FAILURE_BODY, 1, {"markers": []}),
+    ("XCTest failure", XCTEST_FAILURE, 1,
+     {"executed": 13, "xctest": {"executed": 13, "skipped": 0, "failures": 1, "unexpected": 0}}),
+    ("XCTest failure without marker", XCTEST_FAILURE_BODY, 1, {"markers": []}),
+    ("XCTest skipped tests", XCTEST_SKIPPED, 0, {"executed": 11}),
+    ("XCTest all tests skipped", XCTEST_ALL_SKIPPED, 2, {"executed": 0}),
+    ("parallel clone lines", PARALLEL_CLONES, 0,
+     {"executed": 3, "testCases": {"unique": 4, "passed": 3, "failed": 0, "skipped": 1}}),
+    ("parallel clone failure", PARALLEL_CLONES_FAILURE, 1,
+     {"testCases": {"unique": 2, "passed": 1, "failed": 1, "skipped": 0}}),
+    ("zero tests", ZERO_TESTS, 2, {"result": "no tests", "executed": 0}),
+    ("test build failure", TEST_BUILD_FAILURE, 1, {"executed": 0, "markers": ["TEST FAILED"], "buildErrors": 1}),
+    ("build failure", BUILD_FAILURE, 1, {"markers": ["BUILD FAILED"], "buildErrors": 1}),
+    ("build error without marker", BUILD_ERROR_ONLY, 1, {"executed": 0, "markers": [], "buildErrors": 1}),
+    ("test failure lines are not build errors", XCTEST_FAILURE, 1, {"buildErrors": 0}),
+    ("crash and restart", CRASH_RESTART, 1, {"restarts": 1, "executed": 1}),
+    ("crash and restart without marker", CRASH_RESTART_BODY, 1, {"restarts": 1, "markers": []}),
+    ("mixed frameworks over many runs", MIXED_MANY_RUNS, 1,
+     {"executed": 302, "swiftTesting": {"runs": 3, "tests": 243, "failedRuns": 1, "issues": 3}}),
+    ("two passing Swift Testing runs", TWO_PASSING_RUNS, 0, {"executed": 46}),
+    ("Swift Testing short forms", SWIFT_TESTING_SHORT_FORMS, 0,
+     {"executed": 9, "swiftTesting": {"runs": 3, "tests": 9, "failedRuns": 0, "issues": 0}}),
+    ("test execute failure", TEST_EXECUTE_FAILURE, 1, {"markers": ["TEST EXECUTE FAILED"]}),
+    ("log without tests", LINT_ONLY, 2, {"executed": 0, "markers": [], "xctest": None, "swiftTesting": None}),
+]
 
 
-def install_fake_tools(root: Path) -> Path:
-    tool_dir = root / "fake-tools"
-    tool_dir.mkdir()
-    device_file = root / "devices.json"
-    device_file.write_text(
-        json.dumps(
-            {
-                "info": {"jsonVersion": 5, "outcome": "success", "version": "test"},
-                "result": {
-                    "devices": [
-                        device(DEVICE_A, "Lane A", "simulated", DEVICE_A, "booted"),
-                        device(DEVICE_B, "Lane B", "simulated", DEVICE_B, "shutdown"),
-                        device(DEVICE_C, "Outside Pool", "simulated", DEVICE_C, "shutdown"),
-                        device(
-                            PHYSICAL_DEVICE,
-                            "Physical iPhone",
-                            "physical",
-                            PHYSICAL_DESTINATION,
-                            "booted",
-                        ),
-                    ]
-                },
-            }
-        ),
+def run(args: List[str], stdin: Optional[str] = None) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(CHECKER), *args],
+        input=stdin,
+        capture_output=True,
+        text=True,
         encoding="utf-8",
-    )
-
-    xcrun = tool_dir / "xcrun"
-    xcrun.write_text(
-        """#!/usr/bin/env python3
-import json
-import os
-import sys
-from pathlib import Path
-
-arguments = sys.argv[1:]
-if arguments[:3] == ["devicectl", "list", "devices"]:
-    print(Path(os.environ["FAKE_DEVICE_FILE"]).read_text(encoding="utf-8"))
-    raise SystemExit(0)
-if arguments[:4] in (
-    ["devicectl", "device", "install", "app"],
-    ["devicectl", "device", "process", "launch"],
-):
-    output_option = "--json-output" if "--json-output" in arguments else "-j"
-    output_path = Path(arguments[arguments.index(output_option) + 1])
-    output_path.write_text(
-        json.dumps({"info": {"outcome": "success"}}),
-        encoding="utf-8",
-    )
-    print("device operation completed")
-    raise SystemExit(0)
-print(f"unexpected xcrun arguments: {arguments}", file=sys.stderr)
-raise SystemExit(64)
-""",
-        encoding="utf-8",
-    )
-    xcrun.chmod(0o755)
-
-    xcodebuild = tool_dir / "xcodebuild"
-    xcodebuild.write_text(
-        """#!/usr/bin/env python3
-import os
-import sys
-
-print("arguments:", " ".join(sys.argv[1:]))
-print("TEST SUCCEEDED" if os.environ.get("FAKE_ZERO_TESTS") else "Executed 1 test")
-""",
-        encoding="utf-8",
-    )
-    xcodebuild.chmod(0o755)
-    return device_file
-
-
-def reserve(
-    env: dict[str, str],
-    root: Path,
-    owner: str,
-    identifier: str,
-    suffix: str,
-    *,
-    device_hub_window: str | None = None,
-) -> subprocess.Popen[str]:
-    repo = root / f"repo-{suffix}"
-    workspace = repo / f"App-{suffix}.xcworkspace"
-    workspace.mkdir(parents=True)
-    evidence = repo / "task-evidence" / suffix
-    command = [
-        sys.executable,
-        str(LANE),
-        "reserve",
-        "--owner",
-        owner,
-        "--task",
-        suffix,
-        "--role",
-        "test",
-        "--device-id",
-        identifier,
-        "--repo",
-        str(repo),
-        "--workspace",
-        str(workspace),
-        "--derived-data",
-        str(evidence / "DerivedData"),
-        "--evidence",
-        str(evidence),
-    ]
-    if device_hub_window:
-        command.extend(["--device-hub-window", device_hub_window])
-    return subprocess.Popen(
-        command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        check=False,
     )
 
 
-def run(
-    *command: str, env: dict[str, str], expected: int
-) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(
-        command, env=env, capture_output=True, text=True, check=False
-    )
-    if result.returncode != expected:
-        raise AssertionError(
-            f"expected {expected}, got {result.returncode}\n"
-            f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
-        )
-    return result
+def check_case(folder: Path, name: str, text: str, code: int, fields: Dict[str, Any]) -> List[str]:
+    log = folder / (name.replace(" ", "-") + ".raw.log")
+    log.write_text(text, encoding="utf-8")
+    problems = []
 
+    plain = run([str(log)])
+    if plain.returncode != code:
+        problems.append(f"{name}: exit {plain.returncode}, expected {code}: {plain.stdout}{plain.stderr}")
+    if len(plain.stdout.strip().splitlines()) != 1:
+        problems.append(f"{name}: expected a one-line summary, got {plain.stdout!r}")
 
-def gate_command(
-    repo: Path,
-    evidence: Path,
-    destination: str,
-    log_name: str,
-    *,
-    require_tests: bool = False,
-) -> list[str]:
-    command = [
-        sys.executable,
-        str(LANE),
-        "run-xcodebuild",
-        "--owner",
-        "owner-a",
-        "--device-id",
-        DEVICE_A,
-        "--log",
-        str(evidence / log_name),
-    ]
-    if require_tests:
-        command.append("--require-executed-tests")
-    command.extend(
-        [
-            "--",
-            "xcodebuild",
-            "test",
-            "-workspace",
-            str(repo / "App-a2.xcworkspace"),
-            "-destination",
-            destination,
-            "-derivedDataPath",
-            str(evidence / "DerivedData"),
-        ]
-    )
-    return command
-
-
-def assert_no_legacy_tool() -> None:
-    # devicectl cannot boot or shut down a simulator; everything else must use it.
-    legacy_tool = re.compile(re.escape("sim" + "ctl") + r"\s*(\w*)", re.IGNORECASE)
-    allowed = {"boot", "bootstatus", "shutdown"}
-    for path in SKILL_DIR.rglob("*"):
-        if path.suffix not in {".md", ".py", ".yaml", ".yml"}:
-            continue
-        for match in legacy_tool.finditer(path.read_text(encoding="utf-8")):
-            if match.group(1).casefold() not in allowed:
-                raise AssertionError(
-                    "legacy device tool used beyond boot/shutdown in "
-                    f"{path.relative_to(SKILL_DIR)}"
-                )
-
-
-def assert_no_fake_ui_evidence() -> None:
-    forbidden = ("confirm-device" + "-hub", "deviceHub" + "Confirmations")
-    for path in SKILL_DIR.rglob("*"):
-        if path.suffix not in {".md", ".py", ".yaml", ".yml"}:
-            continue
-        text = path.read_text(encoding="utf-8")
-        for phrase in forbidden:
-            if phrase in text:
-                raise AssertionError(
-                    f"fake UI evidence record found in {path.relative_to(SKILL_DIR)}"
-                )
-
-
-def assert_single_guard_entrypoint() -> None:
-    removed_names = ("run_" + "gate.py", "run_" + "device.py")
-    for name in removed_names:
-        if (SCRIPT_DIR / name).exists():
-            raise AssertionError(f"obsolete guard script still exists: {name}")
-    for path in SKILL_DIR.rglob("*"):
-        if path.suffix not in {".md", ".py", ".yaml", ".yml"}:
-            continue
-        text = path.read_text(encoding="utf-8")
-        for name in removed_names:
-            if name in text:
-                raise AssertionError(
-                    f"obsolete guard reference found in {path.relative_to(SKILL_DIR)}"
-                )
+    structured = run([str(log), "--json"])
+    if structured.returncode != code:
+        problems.append(f"{name}: --json exit {structured.returncode}, expected {code}")
+    try:
+        report = json.loads(structured.stdout)
+    except json.JSONDecodeError:
+        return problems + [f"{name}: --json output does not parse: {structured.stdout!r}"]
+    if report.get("exitCode") != code:
+        problems.append(f"{name}: report exitCode {report.get('exitCode')}, expected {code}")
+    for key, expected in fields.items():
+        if report.get(key) != expected:
+            problems.append(f"{name}: {key} = {report.get(key)!r}, expected {expected!r}")
+    return problems
 
 
 def main() -> int:
-    assert_no_legacy_tool()
-    assert_no_fake_ui_evidence()
-    assert_single_guard_entrypoint()
-    with tempfile.TemporaryDirectory(prefix="apple-lane-test-") as temporary:
-        root = Path(temporary)
-        device_file = install_fake_tools(root)
-        env = os.environ.copy()
-        env["CODEX_APPLE_LANE_STATE"] = str(root / "state")
-        env["CODEX_XCTEST_DEVICE_ROOT"] = str(root / "XCTestDevices")
-        env["CODEX_APPLE_TEST_PROCESS_LIST"] = ""
-        env["FAKE_DEVICE_FILE"] = str(device_file)
-        env["PATH"] = f"{root / 'fake-tools'}{os.pathsep}{env['PATH']}"
+    problems: List[str] = []
+    with tempfile.TemporaryDirectory(prefix="check-test-log-") as temp:
+        folder = Path(temp)
+        for name, text, code, fields in CASES:
+            problems += check_case(folder, name, text, code, fields)
 
-        listed = run(sys.executable, str(LANE), "list", "--json", env=env, expected=0)
-        inventory = json.loads(listed.stdout)
-        if {item["kind"] for item in inventory["devices"]} != {"simulator", "physical"}:
-            raise AssertionError(
-                "inventory did not distinguish simulator and physical devices"
-            )
+        piped = run(["-"], stdin=SWIFT_TESTING_ONLY)
+        if piped.returncode != 0 or not piped.stdout.startswith("passed: 7 tests executed"):
+            problems.append(f"stdin: unexpected result {piped.returncode} {piped.stdout!r}")
 
-        run(
-            sys.executable,
-            str(LANE),
-            "pool",
-            "--max-size",
-            "2",
-            "--device-id",
-            DEVICE_A,
-            "--device-id",
-            DEVICE_B,
-            env=env,
-            expected=0,
-        )
-        configured = run(
-            sys.executable, str(LANE), "pool", env=env, expected=0
-        )
-        if set(json.loads(configured.stdout)["deviceIdentifiers"]) != {
-            DEVICE_A,
-            DEVICE_B,
-        }:
-            raise AssertionError("configured simulator pool was not preserved")
+        missing = run([str(folder / "missing.raw.log")])
+        if missing.returncode != 3 or not missing.stderr.startswith("error: cannot read"):
+            problems.append(f"missing file: exit {missing.returncode}, stderr {missing.stderr!r}")
 
-        outside_pool = reserve(env, root, "owner-c", DEVICE_C, "outside-pool")
-        if outside_pool.wait() != 2:
-            raise AssertionError(
-                "simulator outside the bounded pool was accepted: "
-                f"{outside_pool.communicate()}"
-            )
-        outside_pool.communicate()
+        no_args = run([])
+        if no_args.returncode != 3:
+            problems.append(f"missing argument: exit {no_args.returncode}, expected 3")
 
-        unknown = reserve(env, root, "owner-x", UNKNOWN_DEVICE, "unknown")
-        if unknown.wait() != 2:
-            raise AssertionError(
-                "unknown device reservation did not fail closed: "
-                f"{unknown.communicate()}"
-            )
-        unknown.communicate()
-
-        contenders = [
-            reserve(env, root, "owner-a", DEVICE_A, "a"),
-            reserve(env, root, "owner-b", DEVICE_A, "b"),
-        ]
-        results = [(process.wait(), process.communicate()) for process in contenders]
-        if sorted(code for code, _ in results) != [0, 2]:
-            raise AssertionError(
-                f"same-device race did not yield one winner: {results}"
-            )
-        winner = "owner-a" if results[0][0] == 0 else "owner-b"
-        loser = "owner-b" if winner == "owner-a" else "owner-a"
-
-        run(
-            sys.executable,
-            str(LANE),
-            "release",
-            "--owner",
-            loser,
-            "--device-id",
-            DEVICE_A,
-            env=env,
-            expected=2,
-        )
-        run(
-            sys.executable,
-            str(LANE),
-            "release",
-            "--owner",
-            winner,
-            "--device-id",
-            DEVICE_A,
-            env=env,
-            expected=0,
-        )
-
-        first = reserve(env, root, "owner-a", DEVICE_A, "a2")
-        second = reserve(env, root, "owner-b", DEVICE_B, "b2")
-        if first.wait() != 0 or second.wait() != 0:
-            raise AssertionError(
-                "distinct lanes should reserve concurrently: "
-                f"{first.communicate()} {second.communicate()}"
-            )
-        first.communicate()
-        second.communicate()
-
-        repo = root / "repo-a2"
-        evidence = repo / "task-evidence" / "a2"
-        exact_destination = f"platform=iOS Simulator,id={DEVICE_A}"
-        gate = run(
-            *gate_command(
-                repo, evidence, exact_destination, "gate.raw.log", require_tests=True
-            ),
-            env=env,
-            expected=0,
-        )
-        if "Executed 1 test" not in gate.stdout:
-            raise AssertionError("guarded command output was not preserved")
-        if "-parallel-testing-enabled NO" not in gate.stdout:
-            raise AssertionError("guarded test did not default to serial execution")
-
-        parallel_command = gate_command(
-            repo, evidence, exact_destination, "parallel.raw.log"
-        )
-        parallel_command.extend(["-parallel-testing-enabled", "YES"])
-        run(*parallel_command, env=env, expected=2)
-        parallel_command.insert(
-            parallel_command.index("--"), "--allow-parallel-testing"
-        )
-        run(*parallel_command, env=env, expected=0)
-
-        run(
-            *gate_command(
-                repo,
-                evidence,
-                "platform=iOS Simulator,name=Lane A",
-                "name-based.raw.log",
-            ),
-            env=env,
-            expected=2,
-        )
-        run(
-            *gate_command(
-                repo,
-                evidence,
-                f"platform=iOS Simulator,id={DEVICE_A}0",
-                "partial-id.raw.log",
-            ),
-            env=env,
-            expected=2,
-        )
-        duplicate_destination = gate_command(
-            repo,
-            evidence,
-            exact_destination,
-            "duplicate-destination.raw.log",
-        )
-        duplicate_destination.extend(["-destination", exact_destination])
-        run(*duplicate_destination, env=env, expected=2)
-        zero_env = env.copy()
-        zero_env["FAKE_ZERO_TESTS"] = "1"
-        run(
-            *gate_command(
-                repo,
-                evidence,
-                exact_destination,
-                "zero-tests.raw.log",
-                require_tests=True,
-            ),
-            env=zero_env,
-            expected=86,
-        )
-
-        install_json = evidence / "install.json"
-        installed_app = evidence / "DerivedData" / "Build" / "App.app"
-        installed_app.mkdir(parents=True)
-        install_command = [
-            sys.executable,
-            str(LANE),
-            "run-devicectl",
-            "--owner",
-            "owner-a",
-            "--device-id",
-            DEVICE_A,
-            "--log",
-            str(evidence / "install.raw.log"),
-            "--",
-            "xcrun",
-            "devicectl",
-            "device",
-            "install",
-            "app",
-            "--device",
-            DEVICE_A,
-            str(installed_app),
-            "--json-output",
-            str(install_json),
-        ]
-        run(*install_command, env=env, expected=0)
-        if (
-            json.loads(install_json.read_text(encoding="utf-8"))["info"]["outcome"]
-            != "success"
-        ):
-            raise AssertionError(
-                "structured device-operation evidence was not preserved"
-            )
-
-        launch_json = evidence / "launch.json"
-        run(
-            sys.executable,
-            str(LANE),
-            "run-devicectl",
-            "--owner",
-            "owner-a",
-            "--device-id",
-            DEVICE_A,
-            "--log",
-            str(evidence / "launch.raw.log"),
-            "--",
-            "xcrun",
-            "devicectl",
-            "device",
-            "process",
-            "launch",
-            "--device",
-            DEVICE_A,
-            "--terminate-existing",
-            "com.example.App",
-            "--json-output",
-            str(launch_json),
-            env=env,
-            expected=0,
-        )
-
-        name_target = install_command.copy()
-        name_target[name_target.index(DEVICE_A, name_target.index("--device"))] = (
-            "Lane A"
-        )
-        run(*name_target, env=env, expected=2)
-        info_command = install_command.copy()
-        operation_start = info_command.index(
-            "device", info_command.index("devicectl") + 1
-        )
-        info_command[operation_start : operation_start + 3] = [
-            "device",
-            "info",
-            "details",
-        ]
-        run(*info_command, env=env, expected=2)
-
-        physical = reserve(env, root, "owner-p", PHYSICAL_DEVICE, "physical")
-        if physical.wait() != 0:
-            raise AssertionError(
-                f"physical lane reservation failed: {physical.communicate()}"
-            )
-        physical.communicate()
-        physical_repo = root / "repo-physical"
-        physical_evidence = physical_repo / "task-evidence" / "physical"
-        physical_gate = gate_command(
-            repo,
-            evidence,
-            exact_destination,
-            "placeholder.raw.log",
-        )
-        physical_gate[physical_gate.index("owner-a")] = "owner-p"
-        physical_gate[physical_gate.index(DEVICE_A)] = PHYSICAL_DEVICE
-        physical_gate[physical_gate.index(str(evidence / "placeholder.raw.log"))] = str(
-            physical_evidence / "physical.raw.log"
-        )
-        physical_gate[physical_gate.index(str(repo / "App-a2.xcworkspace"))] = str(
-            physical_repo / "App-physical.xcworkspace"
-        )
-        physical_gate[physical_gate.index(exact_destination)] = (
-            f"platform=iOS,id={PHYSICAL_DESTINATION}"
-        )
-        physical_gate[physical_gate.index(str(evidence / "DerivedData"))] = str(
-            physical_evidence / "DerivedData"
-        )
-        run(*physical_gate, env=env, expected=0)
-
-        for owner, identifier in (
-            ("owner-a", DEVICE_A),
-            ("owner-b", DEVICE_B),
-            ("owner-p", PHYSICAL_DEVICE),
-        ):
-            run(
-                sys.executable,
-                str(LANE),
-                "release",
-                "--owner",
-                owner,
-                "--device-id",
-                identifier,
-                env=env,
-                expected=0,
-            )
-
-        stale_clone = root / "XCTestDevices" / "55555555-5555-4555-8555-555555555555"
-        stale_clone.mkdir(parents=True)
-        with (stale_clone / "device.plist").open("wb") as file:
-            plistlib.dump(
-                {
-                    "UDID": stale_clone.name,
-                    "name": "Clone 2 of Lane A",
-                    "state": 1,
-                    "isEphemeral": False,
-                },
-                file,
-            )
-        old_time = time.time() - 10 * 24 * 60 * 60
-        os.utime(stale_clone, (old_time, old_time))
-        dry_prune = run(
-            sys.executable,
-            str(LANE),
-            "prune-xctest-devices",
-            "--older-than-days",
-            "7",
-            env=env,
-            expected=0,
-        )
-        if stale_clone.name not in dry_prune.stdout or not stale_clone.exists():
-            raise AssertionError("XCTest prune dry run changed or omitted the clone")
-        run(
-            sys.executable,
-            str(LANE),
-            "prune-xctest-devices",
-            "--older-than-days",
-            "7",
-            "--apply",
-            env=env,
-            expected=0,
-        )
-        if stale_clone.exists():
-            raise AssertionError("eligible stale XCTest clone was not removed")
-
-        periodic_clone = (
-            root / "XCTestDevices" / "77777777-7777-4777-8777-777777777777"
-        )
-        periodic_clone.mkdir(parents=True)
-        with (periodic_clone / "device.plist").open("wb") as file:
-            plistlib.dump(
-                {
-                    "UDID": periodic_clone.name,
-                    "name": "Clone 3 of Lane A",
-                    "state": 1,
-                    "isEphemeral": False,
-                },
-                file,
-            )
-        os.utime(periodic_clone, (old_time, old_time))
-        (root / "state" / "maintenance.json").write_text(
-            json.dumps(
-                {
-                    "schemaVersion": 1,
-                    "lastXCTestPruneAt": "2000-01-01T00:00:00+00:00",
-                }
-            ),
-            encoding="utf-8",
-        )
-
-        interactive = reserve(
-            env,
-            root,
-            "owner-ui",
-            DEVICE_A,
-            "interactive",
-            device_hub_window="shared-device-hub-window",
-        )
-        if interactive.wait() != 0:
-            raise AssertionError(
-                f"interactive lane reservation failed: {interactive.communicate()}"
-            )
-        interactive.communicate()
-        window_collision = reserve(
-            env,
-            root,
-            "owner-ui-2",
-            DEVICE_B,
-            "interactive-2",
-            device_hub_window="shared-device-hub-window",
-        )
-        if window_collision.wait() != 2:
-            raise AssertionError(
-                "shared Device Hub window did not collide: "
-                f"{window_collision.communicate()}"
-            )
-        window_collision.communicate()
-        run(
-            sys.executable,
-            str(LANE),
-            "release",
-            "--owner",
-            "owner-ui",
-            "--device-id",
-            DEVICE_A,
-            env=env,
-            expected=0,
-        )
-        if periodic_clone.exists():
-            raise AssertionError("periodic XCTest clone pruning did not run on release")
-
-        corrupt_lease = (
-            root / "state" / "66666666-6666-4666-8666-666666666666.json"
-        )
-        corrupt_lease.write_text("{", encoding="utf-8")
-        run(sys.executable, str(LANE), "list", "--json", env=env, expected=2)
-        corrupt_lease.rename(corrupt_lease.with_suffix(".invalid"))
-
-        failing_tool_dir = root / "failing-tools"
-        failing_tool_dir.mkdir()
-        failing_xcrun = failing_tool_dir / "xcrun"
-        failing_xcrun.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
-        failing_xcrun.chmod(0o755)
-        unavailable_env = env.copy()
-        unavailable_env["PATH"] = f"{failing_tool_dir}{os.pathsep}{env['PATH']}"
-        run(
-            sys.executable, str(LANE), "list", "--json", env=unavailable_env, expected=2
-        )
-
-    print(
-        "self-test passed: bounded simulator pool, serial test default, XCTest "
-        "pruning, devicectl identity, collisions, guarded operations, and "
-        "regression checks"
-    )
+    if problems:
+        for problem in problems:
+            print(f"FAIL {problem}", file=sys.stderr)
+        return 1
+    print(f"check_test_log self-test passed: {len(CASES)} fixtures plus stdin and error cases")
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    sys.exit(main())

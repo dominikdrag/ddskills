@@ -1,211 +1,115 @@
 ---
 name: run-apple-verification-loop
 description: >-
-  Run proportional Apple-platform verification for Xcode, Tuist, tests, snapshots, and runtime QA. Reuse the repository's normal destination and
-  existing DerivedData by default; keep tests serial unless parallelism is explicitly justified; reserve an exact isolated device lane from a
-  bounded shared pool only when contention, device-specific behavior, runtime evidence, or an explicit request makes it necessary.
+  Verify Apple-platform changes proportionally and prove the tests actually ran. Use when building or testing an Apple app with Xcode, Tuist, or
+  xcodebuild; when recording or checking snapshot tests; or when checking app behavior on a simulator, a physical device, or in Device Hub.
+  Gets its devices from $manage-apple-simulators.
 ---
 
 # Run Apple Verification Loop
 
-Start with the smallest, least stateful verification that can prove the claim. Escalate to an isolated lane only when the verification actually
-needs exact resource ownership or reproducible device evidence.
+Prove each change with the smallest, least stateful check that supports what you report. This skill decides what to build and test and how to prove it;
+`$manage-apple-simulators` provides the device.
+
+Resolve `SKILL_DIR` to the directory containing the loaded `SKILL.md`, including when it is a repository-local copy.
 
 ## 1. Read the repository contract
 
-Reuse the repository contract and the routed rules relevant to the requested check. Repository commands, review activation and stopping limits override generic examples here. Ordinary focused checks can use the repository commands without loading this full workflow. Use host-required runners with prepared commands; do not expand the verification scope merely to delegate it.
+Read the repository's testing and QA rules. Its wrappers, commands, review limits, and stopping rules override the examples here. Reuse the existing
+project or workspace. Run Tuist generation only when the project is missing or stale, or the repository requires it; generation rewrites the
+checkout, so wait while another process builds in it. Before claiming a device, check that the workspace can build: the projects and dependencies
+it references exist (for Tuist, `Tuist/.build` from `tuist install`). If they are missing and you may not install or generate, report the check
+blocked without claiming.
 
-Do not run Tuist generation merely because verification started. Reuse the existing project or workspace unless it is missing, stale, or the
-repository contract requires regeneration. If generation is necessary, remember that it mutates the checkout and serialize it only when another
-process is actually using the same checkout.
+Done when you know the repository's command for the check and the evidence it requires, and the workspace is ready to build.
 
-## 2. Use the lightweight path by default
+## 2. Pick the smallest scope
 
-For an ordinary compile, unit-test, or targeted integration-test check:
+- Derive the scope from the changed behavior, files, and dependency surface: the smallest test case, suite, filter, or target that exercises the
+  change and its plausible regressions.
+- Broaden only when the change crosses shared or module boundaries, a targeted failure suggests wider impact, the repository or a release gate
+  requires it, or the user asks.
+- Run related targets in one invocation when an existing umbrella scheme covers them; keep schemes and coverage as they are.
+- Add isolation (fresh DerivedData, evidence folders, a specific device model or OS) only when the result you report needs it.
 
-- Run the repository's smallest relevant verification command unchanged when possible.
-- Derive test scope from the changed behavior, files, and dependency surface. Prefer the smallest test case, suite, filter, or test target that
-  exercises the change and its plausible regressions.
-- Do not run every test target or the full test plan by default. Broaden beyond related tests only when the change crosses shared or module
-  boundaries, a targeted failure suggests wider impact, the repository or release gate requires it, or the user explicitly asks for broader testing.
-- Reuse the normal Xcode DerivedData location or an established compatible cache. Evidence and cache paths serve different purposes: fresh task logs do not require a fresh cache. Follow the repository's raw-log requirements and command options; add a result bundle only when useful to the claim.
-- Do not clean or delete existing DerivedData as part of routine verification.
-- Do not discover, boot, reserve, or pin a simulator merely because the command uses Xcode. Let the repository command or Xcode use its established
-  destination.
-- Do not add a simulator UUID, device model, or OS version unless the command cannot run without one or the claim depends on that target. If a
-  destination becomes necessary, choose the least specific suitable destination first; selecting a destination does not by itself require fresh
-  DerivedData or a persistent evidence directory.
-- Confirm the command's exit status and, for tests, that the intended tests actually executed using terminal output or an existing result bundle.
-- Keep simulator testing serial by default. Pass `-parallel-testing-enabled NO` to a composed `xcodebuild` test command unless the user or a
-  repository-specific gate explicitly opts into parallel workers and accepts temporary XCTest clones.
-- For composed `xcodebuild test` or `test-without-building` commands, default to `-collect-test-diagnostics never` to avoid unneeded collection. Request supported diagnostics explicitly when investigating a failure; check the selected Xcode's help for accepted values. Prefer the repository wrapper's option and do not add the flag twice. Do not assume a fixed collection delay without measurement.
-- Combine related test targets in one invocation when an existing umbrella scheme supports their scope. Do not introduce a new scheme or broaden coverage merely to reduce command count.
+Done when you can name the scheme, target, or filter and why it covers the change.
 
-Avoid hypothetical isolation. Multiple repositories, worktrees, or agents on the machine are not alone a reason to create a lane; there must be an
-actual overlapping resource, observed collision, or verification requirement that shared state cannot satisfy.
+## 3. Get a device
 
-## 3. Decide whether an isolated lane is necessary
+- Build-only checks and macOS tests: no claimed device (`-destination 'generic/platform=iOS Simulator'`, or `platform=macOS`).
+- Tests, snapshot tests, or the app on a simulator: claim a simulator with `$manage-apple-simulators` (pass `--worktree <repository root>`), and
+  run the same `claim` again before each later test run: it returns the same simulator and refreshes its 12-hour expiry. When a parent hands
+  you a claim, use it.
+- A physical device: claim it by exact ID with `$manage-apple-simulators`.
 
-Escalate before running the affected gate when any of these applies:
+Pass the claimed device to the repository command: its device-ID option (such as `--device-id <udid>`) or
+`-destination "<destination printed by claim>"`. If the command accepts only a device name, claim that model and OS and pass the UDID through
+the command's override. If it has no override, run the same `xcodebuild` arguments yourself with the claimed destination, and say so in the report.
 
-- The user or repository contract explicitly requires an exact device, isolated DerivedData, persistent raw evidence, or a clean-room result.
-- Verification targets a physical device, direct install or launch, Device Hub, interactive runtime behavior, or device-state persistence.
-- Snapshot recording, rendered comparison, or visual QA depends on a stable model, OS, scale, or exact runtime destination.
-- The failure or acceptance criterion is specific to a simulator model, OS version, architecture, or device identity.
-- Another active verification is actually contending for the same checkout, workspace, destination, Device Hub window, or build data, and the work
-  cannot be safely serialized or allowed to reuse that state.
-- Release-grade provenance requires raw logs and an exact reproducible destination, and ordinary cached verification would not support the claim.
+Some repository wrappers also check the simulator's name (for example `--expected-device-name 'iPhone 17 Pro'`). Claimed simulators are named
+`agent-sim <id> <model> <os>`, so that check fails. Keep the claimed simulator and its name: run the wrapper's `xcodebuild` arguments yourself
+with the claimed destination and say so, or report the step blocked.
 
-State the concrete reason for escalation. Do not create an isolated lane as a precaution when the lightweight path can prove the result.
+Done when the command you will run targets your claimed UDID, or needs no device.
 
-## 4. Reserve an exact lane only after escalation
+## 4. Run
 
-Resolve `SKILL_DIR` to the directory containing the loaded `SKILL.md`, including when it is a repository-local copy. Do not assume a particular global installation path. Reuse a valid reservation supplied by the parent instead of reserving the same resources again.
+- Use the project's normal DerivedData or the wrapper's cache, and keep it. Clean or replace it only for an explicit clean-room requirement.
+- Run tests serially: pass `-parallel-testing-enabled NO` when you compose an `xcodebuild` test command or pass extra arguments through a
+  wrapper, unless the wrapper or scheme already runs tests serially. Use `-parallel-testing-enabled YES -parallel-testing-worker-count N` only
+  when the user or repository asks for parallel tests.
+- Pass `-collect-test-diagnostics never` to composed `xcodebuild test` and `test-without-building` commands. Request diagnostics only to
+  investigate a failure (`xcodebuild -help` lists the values). Prefer the wrapper's own option, and pass it once.
+- Save the raw output and keep the real exit code: `set -o pipefail` before piping through `tee <log>`.
+- A locked build database means another build is using the same DerivedData: wait for it, or work in your own worktree.
 
-List the selected Xcode's structured device inventory and current leases:
-
-```sh
-python3 "$SKILL_DIR/scripts/lane.py" list
-```
-
-The inventory labels simulators as `pooled` or `outside-pool`. Configure the machine once with at most three existing simulators; this command does
-not create devices:
+## 5. Prove the tests ran
 
 ```sh
-python3 "$SKILL_DIR/scripts/lane.py" pool \
-  --device-id '<existing-simulator-uuid>' \
-  --device-id '<existing-simulator-uuid>' \
-  --device-id '<existing-simulator-uuid>'
+python3 "$SKILL_DIR/scripts/check_test_log.py" <raw-log>
 ```
 
-Choose an exact pooled CoreDevice UUID; never substitute a display name. Simulator reservations outside the configured pool fail closed. Physical
-devices remain eligible without entering the simulator pool; their lease separately records the hardware UDID as the Xcode destination ID.
+Give it the raw `xcodebuild` output: the wrapper's own raw log when it writes one, not a filtered summary. It reads XCTest and Swift Testing
+summaries, per-test lines from parallel runs, test-runner crashes, compile errors, and `** ... **` result markers, and prints one summary line
+(`--json` for a report). Exit `0`: tests ran and none failed. `1`: a build failure, a test failure, a crash, or a failed marker. `2`: no test
+ran, usually a filter that matched nothing; fix the filter and rerun. `3`: the log could not be read or the arguments were wrong.
 
-Reserve the device, workspace, DerivedData, and evidence paths with a stable owner such as the Codex task ID:
+Done when the command and the checker both exit `0` with the expected test count, or you have the failure to report.
 
-```sh
-python3 "$SKILL_DIR/scripts/lane.py" reserve \
-  --owner '<task-id>' \
-  --task '<ticket-or-slice>' \
-  --role test \
-  --device-id '<exact-CoreDevice-UUID>' \
-  --repo "$PWD" \
-  --workspace "$PWD/<App>.xcworkspace" \
-  --derived-data '<owned-compatible-cache>' \
-  --evidence "$PWD/<evidence-dir>"
-```
+## 6. Snapshot tests
 
-Add `--device-hub-window '<collision-resistant-label>'` only when the lane will interact with Device Hub. The label coordinates ownership; it does
-not prove an actual window, identifier, or state.
+Claim the model and OS the repository pins, plus `--runtime-build` when its reference images were recorded on one runtime build. To change a
+baseline on purpose:
 
-The machine-global registry is `~/.codex/state/apple-verification-lanes`, shared by every agent on the machine regardless of where the skill is installed. Set `CODEX_APPLE_LANE_STATE` only for isolated registry tests. If a
-reservation collides, stop and coordinate. Never steal a lease, kill a foreign process, retarget a foreign device, or use another lane's resources.
-
-Save a lane manifest only when persistent evidence is required:
-
-```sh
-python3 "$SKILL_DIR/scripts/lane.py" status \
-  --device-id '<exact-CoreDevice-UUID>' --json | tee '<evidence-dir>/lane-manifest.json'
-```
-
-## 5. Run guarded commands in an isolated lane
-
-Read the exact destination from the lease and run `xcodebuild` through the guard:
-
-```sh
-device_uuid='<exact-CoreDevice-UUID>'
-evidence='<evidence-dir>'
-destination="$(python3 "$SKILL_DIR/scripts/lane.py" status \
-  --device-id "$device_uuid" --json | jq -r '.xcodeDestination')"
-
-python3 "$SKILL_DIR/scripts/lane.py" run-xcodebuild \
-  --owner '<task-id>' \
-  --device-id "$device_uuid" \
-  --log "$evidence/<scheme>.raw.log" \
-  --require-executed-tests \
-  -- xcodebuild test \
-    -workspace '<App>.xcworkspace' \
-    -scheme '<scheme>' \
-    -destination "$destination" \
-    -derivedDataPath '<cache-path-from-lease>' -collect-test-diagnostics never
-```
-
-Omit `--require-executed-tests` for a compile-only command. The guard accepts only the exact leased workspace, destination, DerivedData, and evidence
-paths. Treat the underlying exit code and raw output as authoritative.
-
-The guard adds `-parallel-testing-enabled NO` when a test command omits it. Use `--allow-parallel-testing` only for a deliberate exception whose
-worker count and clone cost are understood; it is not a routine speed toggle.
-
-Use the same lease guard for supported direct operations:
-
-```sh
-python3 "$SKILL_DIR/scripts/lane.py" run-devicectl \
-  --owner '<task-id>' \
-  --device-id "$device_uuid" \
-  --log "$evidence/install.raw.log" \
-  -- xcrun devicectl device install app \
-    --device "$device_uuid" '<exact-App.app>' \
-    --json-output "$evidence/install.json"
-
-python3 "$SKILL_DIR/scripts/lane.py" run-devicectl \
-  --owner '<task-id>' \
-  --device-id "$device_uuid" \
-  --log "$evidence/launch.raw.log" \
-  -- xcrun devicectl device process launch \
-    --device "$device_uuid" --terminate-existing '<bundle-id>' \
-    --json-output "$evidence/launch.json"
-```
-
-A successful structured result proves that operation only. It does not prove visible app state, interaction behavior, persistence, or StoreKit
-configuration. A direct launch does not attach an Xcode Run scheme's StoreKit configuration.
-
-Direct install and launch need a booted simulator, and `devicectl` cannot boot or shut one down. For that step only, use
-`xcrun simctl boot "$device_uuid"`, `xcrun simctl bootstatus "$device_uuid" -b`, and `xcrun simctl shutdown "$device_uuid"`; a simulator's
-CoreDevice UUID is its UDID. Never boot or shut down a simulator this task has not leased, because another session may be using it. Use `devicectl`
-for every other device operation, and drop this exception once the selected Xcode's `xcrun devicectl device --help` lists boot and shutdown.
-
-## 6. Verify interactive and visual claims proportionally
-
-Read [references/live-smoke.md](references/live-smoke.md) before Device Hub interaction or runtime UI evidence. Device Hub and Computer Use are
-required only for claims about visible Device Hub state, destination-picker changes, and user-visible runtime behavior.
-
-Read [references/evidence-contract.md](references/evidence-contract.md) when an isolated lane, snapshot, Device Hub, or runtime evidence is in scope.
-For a repository-native snapshot gate whose output does not depend on a fixed destination, keep the lightweight path and existing DerivedData. For existing baselines, compare the requested filters. For an intentional baseline change:
-
-1. Record only the affected filters using the required destination.
+1. Record only the affected filters.
 2. Inspect every changed image at rendered size.
-3. Rerun those filters with recording disabled and confirm the tests executed.
+3. Rerun those filters with recording off and check that the tests ran.
 
-Set `SNAPSHOT_ARTIFACTS` for swift-snapshot-testing (as `TEST_RUNNER_SNAPSHOT_ARTIFACTS` under `xcodebuild`) so newly rendered failure images
-land in the evidence directory instead of the simulator's private tmp folder, and export the reference, failure, and difference attachments with
-`xcrun xcresulttool export attachments --path <xcresult> --output-path <dir> --only-failures` instead of opening the bundle by hand. A repository
-wrapper may already do both and write a report; read that report before the raw log.
+Set `SNAPSHOT_ARTIFACTS` (as `TEST_RUNNER_SNAPSHOT_ARTIFACTS` under `xcodebuild`) so failure images land in your evidence folder instead of the
+simulator's tmp folder. Export reference, failure, and difference images with
+`xcrun xcresulttool export attachments --path <xcresult> --output-path <dir> --only-failures`. A repository wrapper may do both and write a
+report; read that report before the raw log.
 
-If Computer Use cannot fetch fresh Device Hub state, record interactive QA as blocked. Continue independent automated gates when their evidence is
-still valid; do not promote those results into UI, physical-device, or runtime claims.
+## 7. Keep evidence
 
-## 7. Review and release
+Keep evidence outside the checkout or in an ignored folder. Persistent evidence folders, result bundles, and fresh DerivedData are needed only
+when the repository, the user, or a release requires them. In that case, and for snapshot or runtime UI results, read
+[references/evidence-contract.md](references/evidence-contract.md).
 
-Before declaring success, inspect the scoped diff and dirty worktree, confirm intended tests executed, and report the exact verification boundary.
-Reject partial, stale, wrong-binary, wrong-scenario, or wrong-device evidence.
+## 8. Runtime and Device Hub QA
 
-Release reservations created by this task on success, failure or interruption. A parent-supplied reservation remains owned by the parent; return resource status instead of releasing it:
+Install, launch, and screenshots go through `xcrun devicectl` on your claimed UDID. Before opening Device Hub, read `references/device-hub.md` in
+`$manage-apple-simulators`. A direct launch proves the launch only; it does not attach an Xcode Run scheme's StoreKit configuration.
 
-```sh
-python3 "$SKILL_DIR/scripts/lane.py" release \
-  --owner '<task-id>' --device-id '<exact-CoreDevice-UUID>'
-```
+If Computer Use cannot read fresh Device Hub state, report the interactive check as blocked and keep the automated results as they are: they
+support build and test results, not UI or device behavior.
 
-Then explicitly report that the owned Apple verification resources are released. Do not claim or release a lane when the lightweight path was used.
+## 9. Report and release
 
-After the last lease is released, the guard runs maintenance at most once every seven days. It removes only shutdown `Clone N of …` directories
-under `~/Library/Developer/XCTestDevices` that are older than seven days, and skips cleanup while another lease or host test process is active. To
-inspect or run the same maintenance manually:
+Before declaring success, review the scoped diff and the dirty worktree. Report the verification boundary: what was built, which tests ran on
+which device (model, OS, runtime build), and what was not checked. Reject partial, stale, wrong-binary, wrong-scenario, or wrong-device evidence.
 
-```sh
-python3 "$SKILL_DIR/scripts/lane.py" prune-xctest-devices --older-than-days 7
-python3 "$SKILL_DIR/scripts/lane.py" prune-xctest-devices --older-than-days 7 --apply
-```
+Release your claims through `$manage-apple-simulators` when the task ends, on success, failure, or interruption; keep them between runs. A claim
+handed to you by a parent stays with the parent: report its status instead of releasing it.
 
-The first command is a dry run. The cleanup does not invoke the legacy simulator CLI, does not touch ordinary CoreSimulator devices, and ignores
-non-clone XCTest device directories.
+Done when the report names the boundary and states that your Apple devices are released, or that none were claimed.

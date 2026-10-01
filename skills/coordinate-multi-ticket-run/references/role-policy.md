@@ -13,7 +13,7 @@ Use the user's or host's configured model by default; omit a model override unle
 | Scout | Configured default | `low` | `fork_turns: "none"` | Read-only discovery |
 | Worker | Configured default | `medium`; `high` for complex work | `fork_turns: "none"` | Owned implementation |
 | Reviewer | Configured default | `medium` | `fork_turns: "none"` | Read-only review |
-| QA worker | Configured default | `low` | `fork_turns: "none"` | Owned verification lane |
+| QA worker | Configured default | `low` | `fork_turns: "none"` | Verification on its claimed device |
 | Acceptance checker | Configured default | `low` | `fork_turns: "none"` | Read-only closure audit |
 
 Pass `fork_turns: "none"` explicitly on every `spawn_agent` call. Never rely on the collaboration tool's default. The setting covers ordinary,
@@ -21,7 +21,7 @@ replacement, recovery, and final-audit agents. Override it only when the user ex
 contract requires it; record that exception and its reason in the assignment ledger before spawning.
 
 `"none"` removes parent task conversation, so the assignment must carry every task-specific fact the agent needs: objective, canonical paths, current
-frontier and dependencies, commits and evidence state, ownership and protected paths, permitted actions, verification or Apple-lane requirements,
+frontier and dependencies, commits and evidence state, ownership and protected paths, permitted actions, verification or Apple device claim requirements,
 safety boundaries, collaborators and recipient, and report format. Do not use a positive turn count as a shortcut: a long orchestration turn can contain
 the entire run even when the number looks small.
 

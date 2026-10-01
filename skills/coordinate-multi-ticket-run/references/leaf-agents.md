@@ -23,8 +23,10 @@ Use the scout runtime configuration and read-only authority.
 
 Use the worker runtime configuration; raise reasoning effort to `high` for complex work without changing the boundary.
 
-> Implement `<deliverable>` on the owned files or seams. Run the focused checks authorized in this assignment. Apple tooling requires an explicitly
-> assigned `$run-apple-verification-loop` lane. Return at most 300 words: files changed; tests with underlying exit codes and executed counts; snapshots
+> Implement `<deliverable>` on the owned files or seams. Run the focused checks authorized in this assignment. Use Apple tooling only when this
+> assignment allows it, through `$run-apple-verification-loop`. Pass `--label <label>` from this assignment to every `$manage-apple-simulators`
+> claim and release, or use the parent claim it names and leave that release to the parent. Release your own claims before returning. Return at
+> most 300 words: files changed; tests with underlying exit codes and executed counts; snapshots
 > inspected; material peer messages; open issues; proposed material decision entries; decisions needed. Do not commit.
 
 ## Reviewer addendum
@@ -37,11 +39,13 @@ Use the reviewer runtime configuration and read-only authority.
 
 ## QA worker addendum
 
-Use the QA-worker runtime configuration and own only the reserved lane and evidence directory.
+Use the QA-worker runtime configuration and own only your claimed simulator or device and the evidence directory.
 
 > Verify `<flow-or-scenarios>` using the repository QA contract and `$run-apple-verification-loop`. Record exact workspace, binary, scenario, device,
 > actions, observations, screenshots, and blockers. Accept evidence only after checking that it is complete and comes from the intended scenario, binary,
-> and device. Send blocking observations to the ticket coordinator and named affected workers. Release every lane before returning. Return the evidence
+> and device. Send blocking observations to the ticket coordinator and named affected workers. Pass `--label <label>` from this assignment to every
+> `$manage-apple-simulators` claim and release, or use the parent claim it names and leave that release to the parent. Release every simulator or
+> device you claimed before returning. Return the evidence
 > table, material peer messages, and proposed material decision entries. Make no product-code, run-state, commit, ticket/worklog, or shared-record changes.
 
 **Complete when:** the leaf returns every requested artifact or finding, reports unresolved dependencies, and the coordinator updates its ledger status.

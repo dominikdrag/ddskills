@@ -1,0 +1,4 @@
+interface:
+  display_name: "App Store Screenshots"
+  short_description: "Create truthful, readable App Store screenshot sets"
+  default_prompt: "Use $app-store-screenshots to review or create this app's screenshot set, using its real UI and established visual identity."

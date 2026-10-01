@@ -2,7 +2,7 @@
 
 Agent workflows from my development practice: verifying Apple apps, transcribing recordings locally, and keeping implementation decisions readable after the conversation ends.
 
-Nine skills with instructions, executable helpers, templates, and tests. Built around Codex; platform and tool requirements vary by skill.
+Eleven skills with instructions, executable helpers, templates, and tests. Built around Codex; platform and tool requirements vary by skill.
 
 ## Start here
 
@@ -60,6 +60,8 @@ Installation copies the skill packages; it does not install their runtime depend
 | [orchestrate-implementation-run](skills/orchestrate-implementation-run/SKILL.md) | Several independent implementation slices with one integration owner | Agent delegation; optional implementation-notes skill for justified ledgers; Apple verification skill for Apple work |
 | [coordinate-multi-ticket-run](skills/coordinate-multi-ticket-run/README.md) | Dependency-ordered tickets, checked state transitions, and interrupted-run recovery | Python 3, agent delegation; optional implementation-notes skill for justified ledgers; Apple verification skill for Apple work |
 | [app-social-campaign](skills/app-social-campaign/SKILL.md) | App positioning, finished social assets, captions, and a review pack | Product assets; Node.js, Playwright and Sharp for HTML artwork; Python with Pillow; FFmpeg/ffprobe for video |
+| [app-store-screenshots](skills/app-store-screenshots/SKILL.md) | Screenshot copy, gallery sequencing, authentic device compositions, and checked exports | Current product evidence, real app captures, image inspection, and an appropriate renderer or design tool |
+| [video-prompting](skills/video-prompting/SKILL.md) | Model-aware video prompts, reference-image adaptation, and prompt failure diagnosis | Scene brief; image inspection when references are supplied; official documentation for current model capabilities |
 | [design-feature-canvas](skills/design-feature-canvas/SKILL.md) | Mockups of proposed app features on one Claude Design canvas: a row of phone artboards per feature, verdict notes and an overview | Claude with the Artifact tool and the Claude Design canvas type; Python 3 for the lint and index helpers; agent delegation for parallel drawing |
 | [social-campaign-lab](skills/social-campaign-lab/SKILL.md) | Parallel static campaign concepts, review decisions, and a validated handoff | Node.js and Codex task creation/coordination tools; authentic product captures |
 

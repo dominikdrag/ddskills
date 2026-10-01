@@ -1,0 +1,4 @@
+interface:
+  display_name: "Video Prompting"
+  short_description: "Write and refine prompts for video generation"
+  default_prompt: "Use $video-prompting to turn this scene brief into a prompt for the selected video model and input mode."

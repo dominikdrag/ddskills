@@ -159,6 +159,11 @@ python3 "$SKILL_DIR/scripts/lane.py" run-devicectl \
 A successful structured result proves that operation only. It does not prove visible app state, interaction behavior, persistence, or StoreKit
 configuration. A direct launch does not attach an Xcode Run scheme's StoreKit configuration.
 
+Direct install and launch need a booted simulator, and `devicectl` cannot boot or shut one down. For that step only, use
+`xcrun simctl boot "$device_uuid"`, `xcrun simctl bootstatus "$device_uuid" -b`, and `xcrun simctl shutdown "$device_uuid"`; a simulator's
+CoreDevice UUID is its UDID. Never boot or shut down a simulator this task has not leased, because another session may be using it. Use `devicectl`
+for every other device operation, and drop this exception once the selected Xcode's `xcrun devicectl device --help` lists boot and shutdown.
+
 ## 6. Verify interactive and visual claims proportionally
 
 Read [references/live-smoke.md](references/live-smoke.md) before Device Hub interaction or runtime UI evidence. Device Hub and Computer Use are

@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import os
 import plistlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -209,14 +210,18 @@ def gate_command(
 
 
 def assert_no_legacy_tool() -> None:
-    forbidden = "sim" + "ctl"
+    # devicectl cannot boot or shut down a simulator; everything else must use it.
+    legacy_tool = re.compile(re.escape("sim" + "ctl") + r"\s*(\w*)", re.IGNORECASE)
+    allowed = {"boot", "bootstatus", "shutdown"}
     for path in SKILL_DIR.rglob("*"):
         if path.suffix not in {".md", ".py", ".yaml", ".yml"}:
             continue
-        if forbidden in path.read_text(encoding="utf-8").casefold():
-            raise AssertionError(
-                f"legacy device tool reference found in {path.relative_to(SKILL_DIR)}"
-            )
+        for match in legacy_tool.finditer(path.read_text(encoding="utf-8")):
+            if match.group(1).casefold() not in allowed:
+                raise AssertionError(
+                    "legacy device tool used beyond boot/shutdown in "
+                    f"{path.relative_to(SKILL_DIR)}"
+                )
 
 
 def assert_no_fake_ui_evidence() -> None:

@@ -8,6 +8,7 @@ You draw one feature of the "<canvas title>" Claude Design canvas: <feature name
 Read first: <root>/_guide/tokens.md, <root>/_guide/contract.md, the two skeleton artboards in <root>/_guide/, and the type's format rules at <root>/_guide/format.md. Copy the skeletons' markup patterns; reproduce the contract's shared screens exactly.
 
 Feature: <what the user gets, status, decisions already made, what stays free>.
+Lane: draw the shipped app plus only this feature's elements from the contract's ownership list. Where another feature would add to a shared screen, draw the shipped version; name any extra sources in your sticky.
 Screens (file → canvas title → content and state):
 - <root>/project/<Feature>-<Screen>.dc.html → "<C>01 · <screen>" → <what it shows; tier; key copy>
 - …

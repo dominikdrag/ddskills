@@ -17,6 +17,10 @@ For every screen more than one feature draws (a detail page, a settings page, a 
 - the exact anatomy of shared components (card, row, header) with a pointer to the skeleton artboard;
 - what each feature may add and where, and what no feature may change.
 
+## Feature ownership
+
+List, per feature, every UI element it adds (sections, lines on shared cards, chips, marks, notification lines, settings switches). Each lane draws the shipped app plus only its own elements. When a feature normally draws from another (a prep card listing another feature's items, a calendar showing another feature's marks), its lane shows only the shipped sources and the row's sticky names the extra ones. A package row may combine features and says so in its title.
+
 ## System surfaces
 
 - Notifications: how many per day, the title and body pattern the app already ships, which lines features may add, and what never appears on a lock screen.

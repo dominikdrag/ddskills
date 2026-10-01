@@ -7,6 +7,8 @@ description: "Turn a list of proposed features for an existing app into a Claude
 
 A **feature canvas** shows proposed features of one existing app on a single Claude Design canvas: one page per group, one row of phone artboards per feature, a verdict sticky at the end of each row, and an overview artboard that links to every row. The app's shipped look is the design system; the content comes from an agreed feature list.
 
+Each row is an isolated **lane**: the shipped app plus that one feature, so a reader sees exactly what the feature adds. Features shown together belong only in a clearly named package row (for example the paid-tier offer), never in a feature's lane.
+
 The canvas is the deliverable. Draw artboards directly in the Design type's `.dc.html` format; intermediate HTML mockups only double the work.
 
 Resolve this skill's installed directory as `<skill-dir>` for the helper commands. Work in one folder, `<root>`, in the scratchpad or an ignored directory: `<root>/_guide/` holds `tokens.md`, `contract.md`, the skeletons and copies of the type's reference pages for agents; `<root>/project/` holds the artboards and `canvas.json`, the only files published; `<root>/rows.json` collects the rows.
@@ -27,7 +29,7 @@ Resolve this skill's installed directory as `<skill-dir>` for the helper command
 
 7. **Draw in parallel.** Brief one agent per feature with [references/agent-brief.md](references/agent-brief.md). Each writes only its own file prefix, lints, and returns its row for `rows.json`. The coordinator alone creates, publishes and edits the index.
 
-8. **Review across features.** One reviewer reads every artboard against the contract and lists concrete fixes per file; route each fix to its owner or apply it, then re-lint. Done when no contract breach remains and every file passes lint.
+8. **Review across features.** One reviewer reads every artboard against the contract and lists concrete fixes per file; route each fix to its owner or apply it, then re-lint. Done when no contract breach remains, no lane shows another feature's UI, and every file passes lint.
 
 9. **Write the overview and the index.** Write `Main.dc.html` at 1280 px wide: the canvas purpose (proposals, not an approved plan), one card per page with a link per feature to its first artboard and its size or score, the shared rules, and the "not designed on purpose" list. Then run `python3 <skill-dir>/scripts/build_canvas.py rows.json <root>/project` to write `canvas.json` with the row layout, title notes and verdict stickies. Done when the script reports every artboard listed and every link resolved.
 

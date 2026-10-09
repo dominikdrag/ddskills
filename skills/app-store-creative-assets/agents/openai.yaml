@@ -1,0 +1,4 @@
+interface:
+  display_name: "App Store Creative Assets"
+  short_description: "Create App Store headers and search-result artwork"
+  default_prompt: "Use $app-store-creative-assets to create or revise this app's header or search-results artwork using its brand, supported benefits, and the required export formats."

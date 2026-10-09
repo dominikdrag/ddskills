@@ -1,6 +1,6 @@
 ---
 name: app-store-screenshots
-description: "Review, write, create, or revise App Store screenshot sets using a clear benefit story, authentic app captures, consistent device framing, and checked exports. Use for screenshot copy, gallery sequencing, artwork production, and delivery; not general social campaigns or automatic App Store uploads."
+description: "Review, write, create, or revise App Store screenshot sets using a clear benefit story, authentic app captures, consistent device framing, and checked exports. Use for screenshot copy, gallery sequencing, artwork production, and delivery; not dedicated header/search-result creative assets, general social campaigns, or automatic App Store uploads."
 ---
 
 # App Store Screenshots
@@ -8,6 +8,8 @@ description: "Review, write, create, or revise App Store screenshot sets using a
 Turn the app's supported value into a readable visual story. Keep the reusable method here; keep each app's audience, claims, visual identity, and accepted decisions with that app.
 
 ## Match the request
+
+Dedicated product-page headers and search-results creative assets belong to `app-store-creative-assets` when installed. A screenshot gallery that also appears in search stays here. For a mixed request, apply the appropriate workflow to each deliverable; this skill remains usable on its own.
 
 - **Review or discuss:** inspect the supplied set and resources, explain the most consequential problems, and propose concrete alternatives. Findings can stay in the response; do not edit files or render unless requested. Respect another session's ownership of active assets.
 - **Produce:** carry authorized work through rendering, visual inspection, and a reviewable delivery. Establish a representative composition before multiplying it; this is a working method, not an extra approval gate.

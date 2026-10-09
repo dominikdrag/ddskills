@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build App Map"
+  short_description: "Map every shipped screen of an app onto one Claude Design canvas"
+  default_prompt: "Use $build-app-map to map every shipped screen of this app, with its navigation, onto one Claude Design canvas and leave the tools that keep it in sync with main."

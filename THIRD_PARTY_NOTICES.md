@@ -12,6 +12,10 @@ The rendering and packaging helpers use [Playwright](https://github.com/microsof
 
 The bundled InTouch campaign overview is an example from Dominik Drąg's app campaign. Its typography uses [Caprasimo](https://github.com/docrepair-fonts/caprasimo-fonts) and [Figtree](https://github.com/erikdkennedy/figtree); no font files are included. The example demonstrates the workflow and does not grant trademark rights or imply endorsement of derivative campaigns.
 
+## App Map
+
+The App Map helpers render boards with [Google Chrome](https://www.google.com/chrome/) in headless mode and build comparison images with [Pillow](https://github.com/python-pillow/Pillow) when those tools are available. Neither is bundled here.
+
 ## Installation and format
 
 Installation examples use the independently maintained [skills CLI](https://github.com/vercel-labs/skills). Skill folders follow the [Agent Skills format](https://agentskills.io/). This repository is an independent project.

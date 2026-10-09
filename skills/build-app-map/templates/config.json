@@ -1,0 +1,14 @@
+{
+ "_about": "Settings for the App Map tools in this folder. Paths are relative to the repository root unless noted. sources: the app's UI source root. snapshots: the snapshot-test image folder (\"\" when there is none). watched: what check_drift diffs (default: sources and snapshots). ignored: path fragments of targets that are not on the map (previews, watch apps, test support). variantSnapshot: a regex for snapshot variants that are not drawn as their own board (large text, small phone; dark too unless the map draws dark copies). viewFileSuffixes and viewPattern: how check_drift recognises a view file. shared: shared UI path prefixes (design system, shared chrome); a change there flags every board that uses the changed type. board: the phone size in points. fonts: local font files that replace the Google Fonts link when rendering offline (file is a repo path). assets: the uploaded-image map, relative to the App Map folder.",
+ "sources": "Projects/App/Sources/",
+ "snapshots": "Projects/App/Tests/SnapshotTests/__Snapshots__/",
+ "watched": [],
+ "ignored": ["/Previews/", "/TestSupport/"],
+ "variantSnapshot": "-(large-text|compact)(-[a-z-]+)?\\.png$",
+ "viewFileSuffixes": [".swift"],
+ "viewPattern": "(:\\s*View\\s*\\{|some View\\b)",
+ "shared": ["Projects/App/Sources/DesignSystem/"],
+ "board": {"width": 390, "height": 844},
+ "fonts": [],
+ "assets": "kit/assets.json"
+}

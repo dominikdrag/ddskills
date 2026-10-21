@@ -8,6 +8,8 @@ Lead with a supported benefit and a recognizable product experience. Reuse the a
 
 Choose one dominant visual. A large real app screen with a short headline and recognizable icon/name often works; product content or gameplay can be better for another app. Do not make one-phone layouts, two-line headlines, underlines or left/right placement universal rules.
 
+Say what the app is, as well as why it helps. Checked beside real listings on an iPhone, the first search images had too much empty space, and their benefit headlines assumed the viewer already knew the category. Each gained a short purpose line under the headline, a plain category description such as "Morning routine planner", localized per locale and sized to read in the 360 px preview.
+
 When brand identity is part of the composition, use the actual current icon and canonical app-name case. Size them for recognition in the thumbnail, not just the full-resolution canvas. Decorative forms should come from this app's identity and support its purpose; avoid importing motifs from another app simply because their layout worked.
 
 ## Spend pixels on the benefit
@@ -22,6 +24,6 @@ Keep important text and imagery comfortably away from edges and rounded corners.
 
 ## Review the actual deliverable
 
-Check the icon/name first, then the headline, then the product evidence. Inspect both the least and most spacious locales, plus every layout that differs. Confirm meaningful text contrast and keep editorial text clear of the device. Show exact-size previews in the review page instead of scaling every thumbnail to fill its container.
+Check the icon/name first, then the headline and purpose line, then the product evidence. When an iPhone is available, compare the result with real search listings around it; a canvas review hides empty space. Inspect both the least and most spacious locales, plus every layout that differs. Confirm meaningful text contrast and keep editorial text clear of the device. Show exact-size previews in the review page instead of scaling every thumbnail to fill its container.
 
 Deliver the requested locales and dimensions with per-image hashes and clear UI-language notes. Do not add price, offer, marketplace badge or web-address copy merely because it is common in social advertisements; use the current creative-asset guidance linked in the entrypoint.

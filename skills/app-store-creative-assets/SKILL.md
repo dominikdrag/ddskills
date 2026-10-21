@@ -1,6 +1,6 @@
 ---
 name: app-store-creative-assets
-description: "Create, review, or revise static App Store product-page headers and search-results creative assets, from concept choices through localized artwork and checked delivery. Use for these creative placements; not screenshot galleries, app icon design, in-app events, website headers, or video production."
+description: "Create, review, or revise App Store product-page header and search-results creative assets, as still images or looping videos, from concept choices through localized artwork, checked delivery and Asset Library upload. Use for these placements; not screenshot galleries, app preview videos, app icon design, in-app events or website headers."
 ---
 
 # App Store Creative Assets
@@ -20,7 +20,9 @@ Select the placement and read only its reference:
 | Product-page header | [Headers](references/headers.md) | Express a relevant brand idea that survives the displayed crop. |
 | Search-results creative | [Search results](references/search-results.md) | Make the purpose and one useful benefit clear at small size. |
 
-For a screenshot gallery, use `app-store-screenshots` when installed. For a mixed request, keep each deliverable's placement and constraints explicit. These skills work independently; neither is a required dependency of the other. This skill's helper supports still images, not motion validation.
+For a video in either placement, also read [Video](references/video.md): it covers the looping motion, the renderer and the video checks.
+
+For a screenshot gallery, use `app-store-screenshots` when installed. For a mixed request, keep each deliverable's placement and constraints explicit. These skills work independently; neither is a required dependency of the other.
 
 ## Ground the artwork
 
@@ -38,12 +40,12 @@ When showing UI, inspect the original capture first. Use the intended app appear
 
 Preserve software pixels. Uniformly scale the source within the chosen frame or deliberate crop; do not redraw text, controls, status bars or success states. A frame may add a hardware cutout absent from the capture, provided it neither duplicates one nor masks app content. Make changes to the surrounding composition rather than retouching the interface. Use each authentic appearance separately instead of simulating dark mode from a light image.
 
-Keep editorial text editable where practical. Match each app's own identity; a successful design for one app is not a default palette, typeface or metaphor for another. Respect the requested editor and reuse a suitable renderer. The helper below validates finished images; it does not prescribe a rendering stack.
+Keep editorial text editable where practical. Match each app's own identity; a successful design for one app is not a default palette, typeface or metaphor for another. Respect the requested editor and reuse a suitable renderer. The still-image helper validates finished images; it does not prescribe a rendering stack.
 
 ## Fit, inspect and deliver
 
 Preserve approved headline wording and case. Measure the longest localized copy, inspect glyphs and line breaks, and resolve fit through the authorized layout choices. Treat requested approximate type sizes as a starting point; explain a material adjustment. If exact copy and fixed geometry cannot both fit, make the tradeoff concrete before asking. Localizing marketing copy does not translate the app capture: obtain real localized UI when required, or clearly state the retained UI language.
 
-For export requirements, review expectations and the optional helper, read [Export and review](references/export-and-review.md). Check every distinct composition at full size, at a useful thumbnail size, and in relevant crop/overlay views. Measure bounds and verify image properties, then inspect visually; automation cannot judge recognition, natural geometry or readability by itself.
+For still-image export requirements, review expectations and the optional helper, read [Export and review](references/export-and-review.md). Check every distinct composition at full size, at a useful thumbnail size, and in relevant crop/overlay views. Measure bounds and verify image properties, then inspect visually; automation cannot judge recognition, natural geometry or readability by itself.
 
-Deliver editable source/provenance, requested final images, an accessible review location, relevant checks, and material limitations. Keep produced, user-selected, uploaded, submitted, Apple-approved, assigned and published states distinct. Creating artwork grants no additional release action; reuse explicit authorization already given and follow the project's release workflow. Never infer a conversion improvement from visual polish.
+Deliver editable source/provenance, requested final images, an accessible review location, relevant checks, and material limitations. Keep produced, user-selected, uploaded, submitted, Apple-approved, assigned and published states distinct. Creating artwork grants no additional release action; reuse explicit authorization already given and follow the project's release workflow. For an authorized upload, review submission or placement change, read [Asset Library](references/asset-library.md). Never infer a conversion improvement from visual polish.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Google Flow Video"
+  short_description: "Generate, download and verify clips in Google Flow"
+  default_prompt: "Use $google-flow-video to generate and download the requested clips in Google Flow, following this project's workflow and the requested settings."

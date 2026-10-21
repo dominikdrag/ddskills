@@ -54,7 +54,9 @@ Done when the command you will run targets your claimed UDID, or needs no device
 
 ## 4. Run
 
-- Use the project's normal DerivedData or the wrapper's cache, and keep it. Clean or replace it only for an explicit clean-room requirement.
+- Use the project's normal DerivedData or the wrapper's cache (the checkout's `.derived-data` where the project documents one), and
+  keep it. Never create a new cache per run in scratch or evidence folders; each is several GB. Clean or replace it only for an explicit
+  clean-room requirement.
 - Run tests serially: pass `-parallel-testing-enabled NO` when you compose an `xcodebuild` test command or pass extra arguments through a
   wrapper, unless the wrapper or scheme already runs tests serially. Use `-parallel-testing-enabled YES -parallel-testing-worker-count N` only
   when the user or repository asks for parallel tests.

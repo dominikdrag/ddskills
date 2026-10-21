@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import errno
 import json
 import shutil
 import subprocess
@@ -10,9 +11,11 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SKILL = Path(__file__).resolve().parent.parent
 SCRIPTS = SKILL / "scripts"
+sys.path.insert(0, str(SCRIPTS))
 TEMPLATES = SKILL / "templates"
 
 VIEW = "import SwiftUI\n\nstruct {name}: View {{\n    var body: some View {{ Text(\"{text}\") }}\n}}\n"
@@ -64,7 +67,7 @@ class AppMapTests(unittest.TestCase):
         (sources / "DesignSystem").mkdir(parents=True)
         (sources / "DesignSystem/Colors.swift").write_text("import SwiftUI\nenum Colors {}\n", encoding="utf-8")
         snaps.mkdir(parents=True)
-        for name in ["home.png", "home-large-text.png", "detail.png", "settings.png", "kit-tokens.png"]:
+        for name in ["home.png", "home-dark.png", "home-large-text.png", "detail.png", "settings.png", "kit-tokens.png"]:
             (snaps / name).write_bytes(b"\x89PNG fixture")
         subprocess.run(["git", "init", "-q", "-b", "main", str(cls.repo)], check=True)
         git(cls.repo, "-c", "user.email=t@t", "-c", "user.name=t", "add", ".")
@@ -89,7 +92,8 @@ class AppMapTests(unittest.TestCase):
             "boards": [
                 {"name": "Home-Main", "title": "Home", "page": "home", "row": "Home", "presentation": "tab-root",
                  "sources": [src + "Home/HomeView.swift"], "snapshot": snap + "home.png", "snapshots": [snap + "home.png"],
-                 "note": "Home\nThe tab root.", "dark": True},
+                 "note": "Home\nThe tab root.", "dark": True, "darkSnapshot": snap + "home-dark.png",
+                 "darkSnapshots": [snap + "home-dark.png"]},
                 {"name": "Home-Detail", "title": "Detail", "page": "home", "row": "Home", "presentation": "push",
                  "sources": [src + "Home/DetailView.swift"], "snapshot": snap + "detail.png", "snapshots": [snap + "detail.png"]},
                 {"name": "Settings-Sheet", "title": "Settings (sheet)", "page": "settings", "row": "Settings", "presentation": "sheet",
@@ -140,6 +144,7 @@ class AppMapTests(unittest.TestCase):
         self.assertEqual(canvas["notes"]["s_home_0"]["x"], 940)
         manifest = json.loads((self.root / "tools/boards.json").read_text(encoding="utf-8"))
         self.assertEqual(manifest["boards"]["Dark-Home-Main"]["light"], "Home-Main")
+        self.assertTrue(manifest["boards"]["Dark-Home-Main"]["snapshot"].endswith("home-dark.png"))
         self.assertEqual(manifest["scannedThrough"], self.commit)
 
     def test_index_refuses_to_overwrite(self) -> None:
@@ -165,7 +170,13 @@ class AppMapTests(unittest.TestCase):
     def test_coverage_and_drift(self) -> None:
         cov = run(str(self.root / "tools/check_drift.py"), "--coverage", "--repo", str(self.repo), "--to", self.commit,
                   "--manifest", str(self.root / "inventory.json"))
-        self.assertEqual(cov.returncode, 0, cov.stdout)
+        self.assertEqual(cov.returncode, 0, cov.stdout)  # home-dark.png is claimed only by Home-Main's darkSnapshot keys
+        light_only = dict(self.inventory, boards=[dict(b, dark=False) for b in self.inventory["boards"]])
+        (self.tmp / "light-only.json").write_text(json.dumps(light_only), encoding="utf-8")
+        cov = run(str(self.root / "tools/check_drift.py"), "--coverage", "--repo", str(self.repo), "--to", self.commit,
+                  "--manifest", str(self.tmp / "light-only.json"), "--config", str(self.root / "tools/config.json"))
+        self.assertEqual(cov.returncode, 1)
+        self.assertIn("home-dark.png", cov.stdout, "without a dark copy the dark snapshot is unclaimed")
         clean = run(str(self.root / "tools/check_drift.py"), "--repo", str(self.repo), "--json")
         self.assertEqual(json.loads(clean.stdout)["direct"], {})
         view = self.repo / "Projects/App/Sources/Home/HomeView.swift"
@@ -212,6 +223,47 @@ class AppMapTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("boards overlap on page home", result.stdout)
         self.assertIn("Main.dc.html has no card for Home-Detail", result.stdout)
+
+    def test_board_over_the_canvas_size_limit_is_an_error(self) -> None:
+        project = self.tmp / "long" / "project"
+        shutil.copytree(self.root / "project", project)
+        kit = project / "Kit-Tokens.dc.html"
+        kit.write_text(kit.read_text(encoding="utf-8").replace('"height":844', '"height":9659'), encoding="utf-8")
+        index = run(str(SCRIPTS / "build_index.py"), str(self.root / "inventory.json"), "--project", str(project),
+                    "--manifest", str(self.tmp / "long" / "boards.json"), "--force")
+        self.assertEqual(index.returncode, 1)
+        self.assertIn("Kit-Tokens: 390x9659 is outside the canvas board limit of 40 to 8000 px", index.stdout)
+        self.assertFalse((self.tmp / "long" / "boards.json").exists(), "nothing is written for an oversized board")
+
+        canvas = json.loads((project / "canvas.json").read_text(encoding="utf-8"))
+        canvas["boards"]["Kit-Tokens.dc.html"]["h"] = 9659
+        (project / "canvas.json").write_text(json.dumps(canvas), encoding="utf-8")
+        layout = run(str(SCRIPTS / "check_layout.py"), str(project), "--manifest", str(self.root / "tools/boards.json"))
+        self.assertEqual(layout.returncode, 1)
+        self.assertIn("ERROR Kit-Tokens.dc.html: 390x9659 is outside the canvas board limit of 40 to 8000 px", layout.stdout)
+        canvas["boards"]["Kit-Tokens.dc.html"]["h"] = 8000
+        (project / "canvas.json").write_text(json.dumps(canvas), encoding="utf-8")
+        layout = run(str(SCRIPTS / "check_layout.py"), str(project), "--manifest", str(self.root / "tools/boards.json"))
+        self.assertNotIn("canvas board limit", layout.stdout, "8000 px is still allowed")
+
+    def test_render_cleanup_retries_then_gives_up(self) -> None:
+        import render
+
+        remove = shutil.rmtree
+        for failures in (2, 99):  # Chrome lets go after two tries; Chrome never lets go
+            calls = []
+
+            def busy(path, ignore_errors=False):
+                calls.append(ignore_errors)
+                if len(calls) <= failures and not ignore_errors:
+                    raise OSError(errno.ENOTEMPTY, "Directory not empty", str(path))
+                remove(path, ignore_errors=True)
+
+            with mock.patch.object(render.shutil, "rmtree", busy), mock.patch.object(render.time, "sleep"):
+                with render.scratch() as tmp:
+                    (Path(tmp) / "profile").mkdir()
+            self.assertFalse(Path(tmp).exists())
+            self.assertEqual(calls[-1], failures == 99, "falls back to ignoring the error only when every retry failed")
 
     def test_contact_sheet(self) -> None:
         try:

@@ -15,6 +15,7 @@ swapped for local files from config.json next to this script, so rendering needs
 board's current height (0 = everything fits). Set CHROME to override the Chrome binary.
 """
 import argparse
+import contextlib
 import json
 import os
 import re
@@ -77,8 +78,26 @@ def chrome(args, wait_for, stdout=subprocess.DEVNULL, timeout=30):
     return result
 
 
+@contextlib.contextmanager
+def scratch():
+    """A temp folder for the page and Chrome's profile. Chrome's helper processes can still be writing to the profile
+    after it is stopped, so removal ("Directory not empty") is retried and then given up on: the result is already out."""
+    tmp = tempfile.mkdtemp()
+    try:
+        yield tmp
+    finally:
+        for _ in range(5):
+            try:
+                shutil.rmtree(tmp)
+                break
+            except OSError:
+                time.sleep(0.3)
+        else:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 def render(path, out, width, height, scale, config_path):
-    with tempfile.TemporaryDirectory() as tmp:
+    with scratch() as tmp:
         page = os.path.join(tmp, "page.html")
         open(page, "w", encoding="utf-8").write(local_page(path, config_path))
         if os.path.exists(out):
@@ -100,7 +119,7 @@ def render(path, out, width, height, scale, config_path):
 
 
 def measure(path, config_path):
-    with tempfile.TemporaryDirectory() as tmp:
+    with scratch() as tmp:
         page = os.path.join(tmp, "page.html")
         open(page, "w", encoding="utf-8").write(local_page(path, config_path).replace("</body>", MEASURE + "</body>"))
         dump = os.path.join(tmp, "dom.html")

@@ -5,7 +5,7 @@ Usage: check_layout.py [project dir] [--manifest boards.json]
 Defaults: ../project and boards.json next to this script.
 
 Checks that every board file has a canvas.json entry and an `order` slot, every entry has a file, page ids
-exist, board sizes match each file's $preview, boards.json lists exactly the screen and Design kit boards (everything
+exist, board sizes match each file's $preview and stay inside the canvas limit of 40 to 8000 px a side, boards.json lists exactly the screen and Design kit boards (everything
 except Main.dc.html) with sources, a valid presentation, matching page id, height and syncedAt; boards and sticky
 notes on a page do not overlap; note ids and fill colours are valid; and the navigation map has exactly one
 card per board with no two cards overlapping. Exits 1 on any error.
@@ -16,6 +16,7 @@ import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+BOARD_MIN, BOARD_MAX = 40, 8000  # the Design canvas format's limits for a board frame's width and height
 FILLS = {"gray", "red", "orange", "green", "teal", "blue", "purple", "pink"}
 PRESENTATIONS = {"tab-root", "push", "sheet", "full-screen-cover", "menu", "inline-state", "system", "alert-or-dialog", "popover",
                  "kit"}  # kit: a Design kit board (the shipped design system), not a screen
@@ -52,6 +53,9 @@ def check(project, manifest_path):
         size = preview_size(os.path.join(project, name)) if name in files else None
         if size and size != (entry["w"], entry["h"]):
             errors.append(f"{name}: canvas.json {entry['w']}x{entry['h']} but $preview {size[0]}x{size[1]}")
+        if not all(BOARD_MIN <= side <= BOARD_MAX for side in (entry["w"], entry["h"])):
+            errors.append(f"{name}: {entry['w']}x{entry['h']} is outside the canvas board limit of {BOARD_MIN} to {BOARD_MAX} px a side"
+                          " (split a board that is too long)")
     screens = {b[:-len(".dc.html")] for b in boards if b != "Main.dc.html"}
     errors += [f"board missing from boards.json: {b}" for b in sorted(screens - set(manifest))]
     errors += [f"boards.json lists a board the canvas does not have: {b}" for b in sorted(set(manifest) - screens)]

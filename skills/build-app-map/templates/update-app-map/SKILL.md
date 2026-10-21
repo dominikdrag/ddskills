@@ -22,7 +22,7 @@ The [App Map](<canvas url>) shows what ships on `main`: one `.dc.html` board per
    - Update its draw function in `kit/boards/<area>.py` (or a shared helper in `kit/chrome.py`), build it into scratch with `python3 kit/build_boards.py --out <scratch>/build --only <Name>[,Dark-<Name>]`, and compare the result with the live file. If the live file has hand edits you should keep, carry your change into the live file instead of replacing it.
    - Keep its file name, drawn state and sample data.
    - Code wins for structure, numbers and copy. The board's `snapshot` in `tools/boards.json` guides the look (render and compare with `tools/compare.py`), unless `snapshotIsMock` is true: then use it only for shared styling. Never copy snapshot capture artefacts the kit lists.
-   - If the height changes, update the root `height`, `$preview`, the board's `h` in `canvas.json` and its `height` in `boards.json`. Move any board or note below it that would overlap.
+   - If the height changes, update the root `height`, `$preview`, the board's `h` in `canvas.json` and its `height` in `boards.json`. Move any board or note below it that would overlap. The canvas allows a board up to 8000 px high (`check_layout.py` reports a longer one): split a board that would pass it into two (README recipe).
    - If what is drawn or not drawn changes, update the board's paragraph in its row note (`s_<page>_<n>` in `canvas.json`).
 4. **New or removed screen:** follow the README recipe. It covers the draw function and file, `canvas.json` entry and `order`, row geometry, the map card, `boards.json` and `tools/map.json`. A file that check_drift lists only because it is a state you do not draw goes into that board's `undrawn` list instead.
 5. **Navigation changed?** This means a new or removed route, pushed step, sheet, cover, menu, tab or root swap, or an action that leads somewhere new. If so, fix the `href`s on the affected boards and edit the live `Main.dc.html` in place:
@@ -33,6 +33,7 @@ The [App Map](<canvas url>) shows what ships on `main`: one `.dc.html` board per
    - Render: `python3 tools/render.py <board> <out.png> --height <height>`, then `python3 tools/compare.py <out.png> <snapshot> <cmp.png>` and look at it.
    - `python3 tools/lint.py <scratch>/app-map/project` and `python3 tools/check_layout.py <scratch>/app-map/project` must both report 0 errors.
 7. **Publish only what changed.** Use the Artifact tool:
+   - First read the canvas plainly in the session that publishes: action `read` with only `url`. The tool refuses the publish until then; step 2's `path` and `paths` reads do not count, and neither does a read done by a subagent.
    - `url` = the canvas, `root` = `<scratch>/app-map`.
    - `file_path` = one changed file's absolute path; `files` = the others, keyed `project/<File>`.
    - Every published path starts with `project/`. A path without it lands outside the map.

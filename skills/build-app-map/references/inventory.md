@@ -15,7 +15,7 @@ The inventory decides what the App Map shows. Read everything from the pinned ex
 - A state that only changes a sentence or a status line shares its screen's board: name it in the row note.
 - System UI the app does not draw (permission prompts, alerts, purchase sheets, the keyboard, share sheets) is not a board: name it in the note of the board that triggers it.
 - A screen taller than one phone screen is one `tall` board showing the whole scroll.
-- Dark copies (`Dark-<Name>`) are for the main screens only, when the app ships a dark appearance; mark the light board `"dark": true`.
+- Dark copies (`Dark-<Name>`) are for the main screens only, when the app ships a dark appearance; mark the light board `"dark": true` and list its dark snapshots in its `darkSnapshot` (the drawn state) and `darkSnapshots`.
 
 ## Names, titles and presentation
 
@@ -32,6 +32,7 @@ The last page shows the app's design system as it ships on `main`: reference boa
 - **Component rows:** one board per component group the design system defines, in the code's own grouping: buttons, controls (toggles, pickers, segmented controls, fields), status (chips, tags, badges, counts), feedback (toasts, banners, empty states), cards and rows, and the app's signature components. Each shows every variant and state the code has (sizes, disabled, pressed or selected), labelled with the component's name.
 - **Sources:** the design-system files each board draws; a source ending in `/` covers a whole folder (an asset catalog). When the snapshot suite has a component gallery or kit scenarios, draw one board per scenario 1:1 from its snapshot and list it as the board's `snapshot`; otherwise draw from code, using the screen snapshots for the look.
 - **Fields:** `"presentation": "kit"`, the kit page id, names `Kit-<Group>`. Kit boards need no links; they get a card each in a `grid` band at the bottom of `map.json`, with no arrows.
+- **Size:** a kit board stays under 8000 px, the canvas format's limit for a board's width and height (aim for about 6000). Split a long tokens board along the design system's own grouping (colours in use, legacy colours, metrics).
 - **Scope:** draw what is shared. A component used by one screen only belongs on that screen's board.
 
 ## Pages, rows and notes
@@ -48,7 +49,7 @@ The last page shows the app's design system as it ships on `main`: reference boa
 
 ## Coverage check
 
-Run `check_drift.py --coverage` against the pinned commit (the command is in the skill's step 2). Every view file and base snapshot must be claimed by some board's `sources`, `snapshot`, `snapshots` or `undrawn`, kit scenario snapshots included; shared design-system files are covered by config `shared`. Add what is left to the right board, or put a target that is not on the map (previews, a watch app, test support) in config `ignored`.
+Run `check_drift.py --coverage` against the pinned commit (the command is in the skill's step 2). Every view file and base snapshot must be claimed by some board's `sources`, `snapshot`, `snapshots` or `undrawn`, kit scenario snapshots included; shared design-system files are covered by config `shared`. With dark copies drawn, the dark snapshots count too: a board marked `dark` claims them through `darkSnapshot` and `darkSnapshots`, and a dark snapshot of a board with no dark copy goes in that board's `undrawn`. Add what is left to the right board, or put a target that is not on the map (previews, a watch app, test support) in config `ignored`.
 
 ## Snapshot audit
 

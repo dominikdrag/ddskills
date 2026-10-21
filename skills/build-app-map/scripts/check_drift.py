@@ -20,8 +20,8 @@ in / (a folder such as Colors.xcassets/) covers every file under it. It reports:
 Advisory only: exits 0 unless git fails.
 
 First build: `check_drift.py --coverage --to <pinned commit> --manifest <inventory.json>` lists every view file
-and base snapshot at that commit that no board claims in its sources, snapshots or undrawn. Exits 1 when
-anything is unclaimed.
+and base snapshot at that commit that no board claims in its sources, snapshots or undrawn, or, for a board marked
+dark, its darkSnapshot and darkSnapshots. Exits 1 when anything is unclaimed.
 """
 import argparse
 import json
@@ -85,8 +85,15 @@ def covers(paths):
 
 
 def claimed(boards):
-    return covers(path for entry in boards.values() for path in entry["sources"] + entry.get("snapshots", []) + entry.get("undrawn", [])
-                  + ([entry["snapshot"]] if entry.get("snapshot") else []))
+    paths = []
+    for entry in boards.values():
+        paths += entry["sources"] + entry.get("snapshots", []) + entry.get("undrawn", [])
+        keys = ["snapshot"]
+        if entry.get("dark"):  # inventory.json keeps a dark copy's snapshots on its light board
+            paths += entry.get("darkSnapshots", [])
+            keys.append("darkSnapshot")
+        paths += [entry[key] for key in keys if entry.get(key)]
+    return covers(paths)
 
 
 def coverage(manifest, cfg, target):

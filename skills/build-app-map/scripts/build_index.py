@@ -38,6 +38,7 @@ Layout: boards in inventory order, one row per (page, row) in first-seen order, 
 apart; a row longer than maxPerRow wraps into a continued row. The row title note sits 250 px above its
 row; the row's sticky note (every board's `note`, in order) sits after its last board; the next row's
 boards start 120 px below the tallest board plus 250 px for its title. Heights come from each file's $preview.
+The canvas format allows a board 40 to 8000 px wide and high: a board outside that stops the build.
 """
 import argparse
 import datetime as dt
@@ -47,6 +48,7 @@ import re
 import sys
 
 GAP_X, ROW_GAP, TITLE_ABOVE, NOTE_W = 80, 120, 250, 420
+BOARD_MIN, BOARD_MAX = 40, 8000  # the Design canvas format's limits for a board frame's width and height
 PREVIEW = re.compile(r'"\$preview"\s*:\s*\{\s*"width"\s*:\s*(\d+)\s*,\s*"height"\s*:\s*(\d+)')
 ABOUT = ("One entry per App Map board. sources/snapshots: what the board was rebuilt from; snapshot: the one snapshot "
          "matching the drawn state (null when none draws it); snapshotIsMock: the snapshot uses mock UI, so use it only for "
@@ -124,6 +126,10 @@ def build(inventory, project, now):
         if not board.get("sources"):
             raise ValueError(f"{board['name']}: no sources")
     sizes = {name: size_of(project, name) for name in names}
+    for name, (w, h) in list(sizes.items()) + [(m["file"], (m["width"], m["height"]))]:
+        if not all(BOARD_MIN <= side <= BOARD_MAX for side in (w, h)):
+            raise ValueError(f"{name}: {w}x{h} is outside the canvas board limit of {BOARD_MIN} to {BOARD_MAX} px a side "
+                             "(split a board that is too long)")
 
     boards = {m["file"]: {"x": 0, "y": 0, "w": m["width"], "h": m["height"], "title": "Navigation map", "page": map_page,
                           "is_interactive": True}}

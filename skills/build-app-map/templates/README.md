@@ -30,7 +30,7 @@ Tools in `tools/` (settings in `tools/config.json`); the examples run from the r
 | `render.py` | Renders a board to PNG with headless Chrome at 2x, with the app's own font files and each uploaded image's repo file: `python3 <mirror>/tools/render.py <mirror>/project/<Board>.dc.html out.png --height 844`. `--measure` reports how much taller a board must be to show its whole scroll. |
 | `compare.py` | Puts a render next to its snapshot with a 50% overlay: `python3 <mirror>/tools/compare.py out.png <snapshot.png> cmp.png`. |
 | `lint.py` | Design canvas format rules and links: `python3 <mirror>/tools/lint.py <project folder>`. Always pass the whole folder. External URLs are expected warnings. |
-| `check_layout.py` | Cross-checks `canvas.json`, `boards.json`, the board files and the map: entries, `order`, page ids, sizes against `$preview`, overlaps, manifest fields, and one non-overlapping map card per board. |
+| `check_layout.py` | Cross-checks `canvas.json`, `boards.json`, the board files and the map: entries, `order`, page ids, sizes against `$preview` and the canvas limit of 40 to 8000 px a side, overlaps, manifest fields, and one non-overlapping map card per board. |
 | `gen_map.py` + `map.json` | Rebuilds `Main.dc.html` from `map.json` into scratch (`--out`). It drops hand edits, so use it only for a full re-layout, never over the live map; mirror hand edits into `map.json`. |
 | `build_index.py` | Wrote the first `canvas.json` and `boards.json`. Kept as the record of the layout rules; never rerun over the live index. |
 

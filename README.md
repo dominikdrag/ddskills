@@ -2,7 +2,7 @@
 
 Agent workflows from my development practice: verifying Apple apps, transcribing recordings locally, and keeping implementation decisions readable after the conversation ends.
 
-Thirteen skills with instructions, executable helpers, templates, and tests. Built around Codex; platform and tool requirements vary by skill.
+Fourteen skills with instructions, executable helpers, templates, and tests. Built around Codex; platform and tool requirements vary by skill.
 
 ## Start here
 
@@ -63,6 +63,7 @@ Installation copies the skill packages; it does not install their runtime depend
 | [app-store-screenshots](skills/app-store-screenshots/SKILL.md) | Screenshot copy, gallery sequencing, authentic device compositions, and checked exports | Current product evidence, real app captures, image inspection, and an appropriate renderer or design tool |
 | [app-store-creative-assets](skills/app-store-creative-assets/SKILL.md) | Static product-page headers and search-results artwork, localized previews and checked delivery packs | Brand/product evidence, image inspection, a suitable renderer; optional Python 3.10+ with Pillow/ImageCms for export checks and packaging |
 | [video-prompting](skills/video-prompting/SKILL.md) | Model-aware video prompts, reference-image adaptation, and prompt failure diagnosis | Scene brief; image inspection when references are supplied; official documentation for current model capabilities |
+| [publish-social-carousels](skills/publish-social-carousels/SKILL.md) | Publish existing carousels, resume partial batches, verify live posts and record URLs | Computer Use with signed-in social accounts; Python 3.10+ for read-only marketing manifest preparation |
 | [design-feature-canvas](skills/design-feature-canvas/SKILL.md) | Mockups of proposed app features on one Claude Design canvas: a row of phone artboards per feature, verdict notes and an overview | Claude with the Artifact tool and the Claude Design canvas type; Python 3 for the lint and index helpers; agent delegation for parallel drawing |
 | [build-app-map](skills/build-app-map/SKILL.md) | Every shipped screen of an existing app on one Claude Design canvas: click-through boards checked against its snapshot tests, a Design kit page of the shipped tokens, type and components, a navigation map, and the repo tools and update skill that keep it in sync with `main` | Claude with the Artifact tool and the Claude Design canvas type; Git, Python 3 with Pillow and Google Chrome for the render, drift and layout helpers; snapshot tests or real captures of the app |
 | [social-campaign-lab](skills/social-campaign-lab/SKILL.md) | Parallel static campaign concepts, review decisions, and a validated handoff | Node.js and Codex task creation/coordination tools; authentic product captures |
@@ -90,6 +91,7 @@ python3 skills/design-feature-canvas/scripts/self_test.py
 python3 skills/build-app-map/tests/self_test.py
 node --test skills/social-campaign-lab/scripts/campaign-assets.test.mjs
 python3 -m unittest discover -s skills/app-store-creative-assets/tests -v
+python3 -m unittest discover -s skills/publish-social-carousels/tests -v
 ```
 
 These checks exercise workflow transitions, test-log counting with fixtures, simulator claims and cleanup with a fake `xcrun`, transcription routing/alignment with fixtures, canvas artboard lint and index building, App Map board building, layout and drift checks on a fixture app, campaign artifact rules, and creative-image validation, preview generation and archive integrity. They do not run an Apple app, create real simulators, measure transcription accuracy, or evaluate an agent's creative judgment.

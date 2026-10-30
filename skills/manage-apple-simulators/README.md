@@ -11,7 +11,10 @@ from this skill.
 
 1. **Claim.** `simulators.py claim` creates an `agent-sim <claim-id> <model> <os>` simulator (default `iPhone 17 Pro` on the newest installed
    iOS runtime), boots it, records the runtime build it actually got, and prints its UDID and `xcodebuild` destination. Snapshot work can ask
-   for a model, OS version, and runtime build.
+   for a model, OS version, and runtime build. When [simslim](https://github.com/MobAI-App/simslim) is installed, the simulator boots slim:
+   background services the tests do not need are off, so it uses about 0.9 GB instead of 2.3 GB or more. StoreKit, push, and universal
+   links keep working ([`assets/simslim-profile.json`](assets/simslim-profile.json)); `--keep-services` keeps more categories on, `--stock`
+   keeps them all.
 2. **Reuse.** The same agent process, worktree, and label get the same claim back, so every run in a task uses the same simulator; running
    `claim` before each run also refreshes its 12-hour expiry. A different worktree or `--label` gets a separate simulator; sub-agents share their
    session's process, so each passes its own `--label`.
@@ -26,7 +29,7 @@ Physical devices are claimed by exact ID and are never created, booted, or delet
 
 | Command | What it does | Options |
 | --- | --- | --- |
-| `claim` | Create and boot a simulator, or claim a physical device, or return the existing claim | `--model`, `--os`, `--runtime-build`, `--device-id`, `--no-boot`, `--label`, `--worktree`, `--owner-pid`, `--json` |
+| `claim` | Create and boot a simulator, or claim a physical device, or return the existing claim | `--model`, `--os`, `--runtime-build`, `--device-id`, `--no-boot`, `--keep-services`, `--stock`, `--label`, `--worktree`, `--owner-pid`, `--json` |
 | `release` | Delete the claimed simulator and its clones, or free a physical device | `--claim ID` (repeatable), `--label`, `--worktree`, `--owner-pid`, `--json` |
 | `list` | Show claims, orphan `agent-sim` simulators, and the booted-simulator count; changes nothing | `--mine`, `--label`, `--worktree`, `--owner-pid`, `--json` |
 | `cleanup` | Report abandoned claims, orphan `agent-sim` simulators, and shut-down XCTest clones; delete them with `--apply` | `--apply`, `--older-than-days N` (default 7), `--json` |
@@ -38,18 +41,20 @@ The script never downloads runtimes, never drives Device Hub, and never touches 
 except XCTest clones: its own on release, and shut-down ones during cleanup. Claims live in `~/.local/state/manage-apple-simulators`.
 
 Environment overrides exist for tests: `APPLE_SIMULATORS_STATE` (state folder), `APPLE_SIMULATORS_XCRUN` (`xcrun` path),
-`APPLE_SIMULATORS_XCTEST_SET` (XCTest clone device set), `APPLE_SIMULATORS_LEGACY_LEASES` (legacy registry folder, read-only),
+`APPLE_SIMULATORS_XCTEST_SET` (XCTest clone device set), `APPLE_SIMULATORS_SIMSLIM` (`simslim` path), `APPLE_SIMULATORS_LEGACY_LEASES` (legacy registry folder, read-only),
 `APPLE_SIMULATORS_OWNER_PID` (same as `--owner-pid`), and `APPLE_SIMULATORS_PS` (`ps` path).
 
 ## Requirements
 
 macOS with Xcode (`xcrun simctl` and `xcrun devicectl`), the simulator runtimes you need installed in Xcode > Settings > Components, and
-Python 3.9 or newer (standard library only). Device Hub and Computer Use are needed only to see or drive the app interactively.
+Python 3.9 or newer (standard library only). [simslim](https://github.com/MobAI-App/simslim) is optional
+(`brew install mobai-app/tap/simslim`); without it simulators run stock. Device Hub and Computer Use are needed only to see or drive the app interactively.
 
 ## Bundled resources
 
 - [`scripts/simulators.py`](scripts/simulators.py): claim, reuse, release, list, and clean up simulators and physical devices.
-- [`scripts/self_test.py`](scripts/self_test.py): test the script against a fake `xcrun` and fake owner processes; it creates no real
+- [`assets/simslim-profile.json`](assets/simslim-profile.json): the simslim categories kept on for every slim simulator.
+- [`scripts/self_test.py`](scripts/self_test.py): test the script against a fake `xcrun`, a fake `simslim`, and fake owner processes; it creates no real
   simulators. Run `python3 skills/manage-apple-simulators/scripts/self_test.py` from a checkout of this repository.
 - [`references/device-hub.md`](references/device-hub.md): Device Hub rules, opening your own window, and the Computer Use check for interactive
   QA.

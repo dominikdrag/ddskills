@@ -4,10 +4,13 @@
 Every agent task gets its own temporary simulator named "agent-sim <claim-id> <model> <os>"
 and deletes it on release. Physical devices are claimed by exact ID and never created or
 deleted. Cleanup only touches "agent-sim <claim-id> ..." simulators and shut-down XCTest clones.
+When simslim is installed, new simulators boot slim: background services the tests do not need
+are off (assets/simslim-profile.json), which cuts each simulator's memory about 3x.
 
 Environment overrides (mainly for tests):
   APPLE_SIMULATORS_STATE          state folder (default ~/.local/state/manage-apple-simulators)
   APPLE_SIMULATORS_XCRUN          xcrun executable for every simctl/devicectl call (default xcrun)
+  APPLE_SIMULATORS_SIMSLIM        simslim executable (default simslim)
   APPLE_SIMULATORS_XCTEST_SET     XCTest clone device set (default ~/Library/Developer/XCTestDevices)
   APPLE_SIMULATORS_LEGACY_LEASES  legacy lane leases, read only
                                   (default ~/.codex/state/apple-verification-lanes)
@@ -48,6 +51,9 @@ CREATE_TIMEOUT_MINUTES = 30  # above the worst case of create, boot, bootstatus,
 MAINTENANCE_DAYS = 7
 BUSY_BOOTED_COUNT = 4
 INSTALL_HINT = "install runtimes in Xcode > Settings > Components; this script never downloads them"
+SLIM_PROFILE = Path(__file__).resolve().parent.parent / "assets" / "simslim-profile.json"
+SLIM_TIMEOUT_SECONDS = 900  # simslim's own boot deadline is 10 minutes
+SIMSLIM_HINT = "brew install mobai-app/tap/simslim"
 
 Claim = Dict[str, Any]
 Device = Dict[str, Any]
@@ -265,6 +271,63 @@ def boot(udid: str) -> None:
     if result.returncode != 0 and "current state: Booted" not in result.stderr + result.stdout:
         raise Failure(f"could not boot {udid}: {(result.stderr or result.stdout).strip()}", 1)
     xcrun("simctl", "bootstatus", udid, "-b", timeout=BOOT_TIMEOUT_SECONDS)
+
+
+def simslim(*args: str, timeout: float = 120) -> Optional[subprocess.CompletedProcess[str]]:
+    """Run simslim; None when it is not installed."""
+    command = [setting("APPLE_SIMULATORS_SIMSLIM", "simslim"), *args]
+    try:
+        return subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=False)
+    except FileNotFoundError:
+        return None
+    except subprocess.TimeoutExpired:
+        raise Failure(f"timed out after {timeout:.0f} s: simslim {' '.join(args)}", 1) from None
+
+
+def slim_categories(keep: Optional[str]) -> List[str]:
+    """Service categories kept on: the profile's own plus --keep-services, checked against simslim's list."""
+    extra = [item.strip() for item in (keep or "").split(",") if item.strip()]
+    if extra:
+        result = simslim("profiles", "--json")
+        if result is not None and result.returncode == 0:
+            try:
+                known = {entry["id"] for entry in json.loads(result.stdout)}
+            except (ValueError, KeyError, TypeError):
+                raise Failure("simslim profiles --json returned unreadable JSON", 1) from None
+            unknown = [item for item in extra if item not in known]
+            if unknown:
+                raise Failure(f"unknown service categories {', '.join(unknown)}; known: {', '.join(sorted(known))}")
+    return list(dict.fromkeys([*read_json(SLIM_PROFILE).get("except", []), *extra]))
+
+
+def apply_services(udid: str, kept: Optional[List[str]]) -> Optional[str]:
+    """Slim the simulator keeping these categories on (None: back to stock); simslim boots it.
+
+    Returns None when done, else why it did not happen (simslim missing or failed).
+    """
+    with tempfile.TemporaryDirectory() as folder:
+        if kept is None:
+            args = ["off", udid]
+        else:
+            profile = Path(folder) / "profile.json"
+            write_json(profile, {**read_json(SLIM_PROFILE), "except": kept})
+            args = ["on", udid, "--profile", str(profile)]
+        try:
+            result = simslim(*args, timeout=SLIM_TIMEOUT_SECONDS)
+        except Failure as error:
+            return str(error)
+    if result is None:
+        return f"simslim is not installed ({SIMSLIM_HINT})"
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip().splitlines()
+        return f"simslim {args[0]} failed: {detail[-1] if detail else f'exit {result.returncode}'}"
+    return None
+
+
+def services_text(claim: Claim) -> str:
+    if claim.get("services") == "slim":
+        return "slim, kept on: " + (", ".join(claim.get("keptServices") or []) or "none")
+    return "stock"
 
 
 def read_runtime_build(udid: str) -> Optional[str]:
@@ -689,7 +752,8 @@ def base_claim(claim_id: str, kind: str, owner: Optional[Dict[str, Any]], worktr
     return {
         "schemaVersion": 1, "id": claim_id, "kind": kind, "status": "creating", "name": None, "udid": None,
         "destination": None, "model": None, "deviceTypeIdentifier": None, "os": None, "runtimeIdentifier": None,
-        "runtimeBuild": None, "temporary": kind == "simulator", "owner": owner, "worktree": worktree,
+        "runtimeBuild": None, "services": "stock", "keptServices": [], "temporary": kind == "simulator",
+        "owner": owner, "worktree": worktree,
         "label": label, "createdAt": iso(now), "expiresAt": expiry(),
     }
 
@@ -717,7 +781,9 @@ def spec_matches(claim: Claim, args: argparse.Namespace, target: Optional[Tuple[
     return not args.runtime_build or claim.get("runtimeBuild") == args.runtime_build
 
 
-def reuse_claim(args: argparse.Namespace, owner: Any, worktree: str, label: str, target: Any) -> Optional[Claim]:
+def reuse_claim(
+    args: argparse.Namespace, owner: Any, worktree: str, label: str, target: Any, want: Any
+) -> Optional[Claim]:
     with registry_lock():
         candidates = [
             claim for claim in load_claims()
@@ -740,10 +806,25 @@ def reuse_claim(args: argparse.Namespace, owner: Any, worktree: str, label: str,
         claim["runtimeBuild"] = read_runtime_build(claim["udid"])
         with registry_lock():
             save_claim(claim)
+    # Only a slim claim changes: a stock simulator already runs every service.
+    if want is not None and claim.get("services") == "slim" and (
+        want == "stock" or set(want) != set(claim.get("keptServices") or [])
+    ):
+        kept = None if want == "stock" else want
+        problem = apply_services(claim["udid"], kept)
+        if problem:
+            raise Failure(f"could not change the services of {claim['udid']}: {problem}; "
+                          "claim again, or release and claim with --stock", 1)
+        claim.update(services="slim" if kept else "stock", keptServices=kept or [])
+        with registry_lock():
+            save_claim(claim)
+        boot(claim["udid"])
     return claim
 
 
-def create_simulator(args: argparse.Namespace, owner: Any, worktree: str, label: str, target: Any) -> Claim:
+def create_simulator(
+    args: argparse.Namespace, owner: Any, worktree: str, label: str, target: Any, want: Any
+) -> Claim:
     device_type, runtime = target
     with registry_lock():
         claim = base_claim(new_claim_id(), "simulator", owner, worktree, label)
@@ -763,6 +844,15 @@ def create_simulator(args: argparse.Namespace, owner: Any, worktree: str, label:
         with registry_lock():
             save_claim(claim)
         if not args.no_boot:
+            if want != "stock":
+                kept = want or slim_categories(None)
+                problem = apply_services(udid, kept)
+                if problem:
+                    note(f"note: {problem}; the simulator runs stock")
+                    xcrun("simctl", "shutdown", udid, check=False)
+                    xcrun("simctl", "erase", udid)  # an erased simulator has stock services again
+                else:
+                    claim.update(services="slim", keptServices=kept)
             boot(udid)
             claim["runtimeBuild"] = read_runtime_build(udid)
             if args.runtime_build and claim["runtimeBuild"] != args.runtime_build:
@@ -832,15 +922,22 @@ def print_claim(claim: Claim, reused: bool, as_json: bool) -> None:
     print(f"udid {claim['udid']}")
     print(f"destination {claim['destination']}")
     print(f"device {claim['model']}, iOS {claim['os']} ({claim.get('runtimeBuild') or 'build not read yet'})")
+    if claim["kind"] == "simulator":
+        print(f"services {services_text(claim)}")
     print(f"reused {'yes' if reused else 'no'}")
     print(f"expires {claim['expiresAt']}")
 
 
 def command_claim(args: argparse.Namespace) -> int:
-    if args.device_id and (args.model or args.os or args.runtime_build):
-        raise Failure("--device-id cannot be combined with --model, --os, or --runtime-build")
+    if args.device_id and (args.model or args.os or args.runtime_build or args.keep_services or args.stock):
+        raise Failure("--device-id cannot be combined with --model, --os, --runtime-build, --keep-services, or --stock")
     if args.no_boot and args.runtime_build:
         raise Failure("--runtime-build needs a boot to read the build; drop --no-boot")
+    if args.stock and args.keep_services:
+        raise Failure("--stock keeps every service on; drop --keep-services")
+    if args.no_boot and args.keep_services:
+        raise Failure("--keep-services slims the simulator, which needs a boot; drop --no-boot")
+    want = "stock" if args.stock else slim_categories(args.keep_services) if args.keep_services else None
     owner, worktree, label = identity(args)
     if owner is None:
         note("warning: no claude or codex ancestor process found; claim relies on the 12-hour expiry; "
@@ -848,12 +945,12 @@ def command_claim(args: argparse.Namespace) -> int:
     auto_cleanup()
     wants_spec = bool(args.model or args.os or args.runtime_build)
     target = resolve_target(args.model, args.os, args.runtime_build) if wants_spec else None
-    claim = reuse_claim(args, owner, worktree, label, target)
+    claim = reuse_claim(args, owner, worktree, label, target, want)
     reused = claim is not None
     if claim is None and args.device_id:
         claim, reused = claim_physical(args, owner, worktree, label)
     elif claim is None:
-        claim = create_simulator(args, owner, worktree, label, target or resolve_target(None, None, None))
+        claim = create_simulator(args, owner, worktree, label, target or resolve_target(None, None, None), want)
     booted = booted_count()
     if booted is not None and booted > BUSY_BOOTED_COUNT:
         note(f"note: {booted} simulators are booted on this Mac; expect slower boots and tests")
@@ -983,7 +1080,11 @@ def build_parser() -> argparse.ArgumentParser:
     claim.add_argument("--os", help="iOS version, e.g. 27.0; 27 means the newest 27.x (default: newest installed)")
     claim.add_argument("--runtime-build", help="required runtime build, e.g. 24A434; checked after boot")
     claim.add_argument("--device-id", help="physical device CoreDevice identifier or hardware UDID")
-    claim.add_argument("--no-boot", action="store_true", help="create without booting (not with --runtime-build)")
+    claim.add_argument("--no-boot", action="store_true",
+                       help="create without booting; the simulator runs stock (not with --runtime-build)")
+    claim.add_argument("--keep-services", metavar="CATEGORIES",
+                       help="simslim categories to keep on as well as store and web, e.g. pim,photos")
+    claim.add_argument("--stock", action="store_true", help="do not slim: keep every background service on")
     claim.add_argument("--json", action="store_true", help="print the claim record as JSON")
     add_identity(claim)
     claim.set_defaults(handler=command_claim)

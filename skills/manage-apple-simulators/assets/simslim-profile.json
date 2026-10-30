@@ -1,0 +1,5 @@
+{
+  "name": "agent",
+  "description": "Agent test simulators: keep StoreKit, push, and universal links working",
+  "except": ["store", "web"]
+}

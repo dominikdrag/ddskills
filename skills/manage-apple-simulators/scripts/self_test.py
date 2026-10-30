@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Self-test simulators.py against a fake xcrun and real short-lived owner processes.
+"""Self-test simulators.py against a fake xcrun, a fake simslim, and real short-lived owner processes.
 
 No real simulator is created, booted, or deleted. Run: python3 scripts/self_test.py
 """
@@ -86,10 +86,16 @@ def handle(state, args):
             return 149, "", "Unable to shutdown device in current state: Shutdown"
         device["state"] = "Shutdown"
         return 0, "", ""
+    if command == "erase":
+        if device["state"] == "Booted":
+            return 149, "", "Unable to erase contents and settings in current state: Booted"
+        state["slim"].pop(rest[0], None)
+        return 0, "", ""
     if command == "delete":
         if device["state"] == "Booted":
             return 149, "", "Unable to delete a device in current state: Booted"
         del devices[rest[0]]
+        state["slim"].pop(rest[0], None)
         if set_path:
             shutil.rmtree(os.path.join(set_path, rest[0]), ignore_errors=True)
         return 0, "", ""
@@ -105,6 +111,43 @@ with open(str(STATE) + ".lock", "a+") as lock:
     fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
     state = json.loads(STATE.read_text())
     state["calls"].append(sys.argv[1:])
+    code, out, err = handle(state, sys.argv[1:])
+    STATE.write_text(json.dumps(state, indent=1))
+sys.stdout.write(out)
+sys.stderr.write(err)
+raise SystemExit(code)
+'''
+
+# Records the categories a slim simulator keeps on in state["slim"][udid]; `off` removes the entry.
+FAKE_SIMSLIM = r'''#!/usr/bin/env python3
+import fcntl, json, os, sys
+from pathlib import Path
+
+STATE = Path(os.environ["FAKE_XCRUN_STATE"])
+CATEGORIES = ["widgets", "siri", "search", "icloud", "store", "pim", "web", "photos"]
+
+
+def handle(state, args):
+    if args == ["profiles", "--json"]:
+        return 0, json.dumps([{"id": item} for item in CATEGORIES]), ""
+    if args[:1] not in (["on"], ["off"]) or len(args) < 2 or args[1] not in state["devices"]:
+        return 1, "", "simslim: unexpected call %s" % args
+    if os.environ.get("FAKE_SIMSLIM_FAIL"):
+        state["devices"][args[1]]["state"] = "Booted"  # failed after its boot, like a blown deadline
+        return 1, "", "Booting the simulator...\nsimslim: context deadline exceeded"
+    if args[0] == "on":
+        profile = json.loads(Path(args[args.index("--profile") + 1]).read_text())
+        state["slim"][args[1]] = profile["except"]
+    else:
+        state["slim"].pop(args[1], None)
+    state["devices"][args[1]]["state"] = "Booted"
+    return 0, "Done.\n", ""
+
+
+with open(str(STATE) + ".lock", "a+") as lock:
+    fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+    state = json.loads(STATE.read_text())
+    state["calls"].append(["simslim", *sys.argv[1:]])
     code, out, err = handle(state, sys.argv[1:])
     STATE.write_text(json.dumps(state, indent=1))
 sys.stdout.write(out)
@@ -178,6 +221,7 @@ def initial_state() -> Dict[str, Any]:
             "AAAAAAAA-0000-4000-8000-000000000004": {"name": HUMAN_AGENT_NAMES[0], "runtime": IOS27, "state": "Shutdown"},
         },
         "sets": {},
+        "slim": {},
         "coreDevices": [
             "not a device",
             {"identifier": 5},
@@ -208,7 +252,7 @@ class Harness:
         self.state = root / "state"
         tools = root / "tools"
         tools.mkdir()
-        for name, body in (("xcrun", FAKE_XCRUN), ("ps", FAKE_PS), ("ps-denied", PS_DENIED)):
+        for name, body in (("xcrun", FAKE_XCRUN), ("simslim", FAKE_SIMSLIM), ("ps", FAKE_PS), ("ps-denied", PS_DENIED)):
             (tools / name).write_text(body)
             (tools / name).chmod(0o755)
         self.fake_ps = str(tools / "ps")
@@ -217,6 +261,7 @@ class Harness:
         self.env.update(
             APPLE_SIMULATORS_STATE=str(self.state), APPLE_SIMULATORS_XCRUN=str(tools / "xcrun"),
             APPLE_SIMULATORS_XCTEST_SET=str(self.xctest), APPLE_SIMULATORS_LEGACY_LEASES=str(self.legacy),
+            APPLE_SIMULATORS_SIMSLIM=str(tools / "simslim"),
             FAKE_XCRUN_STATE=str(self.fake_state),
         )
 
@@ -270,6 +315,12 @@ class Harness:
         change(state)
         self.fake_state.write_text(json.dumps(state))
 
+    def slim(self, udid: str) -> Any:
+        return self.fake()["slim"].get(udid)
+
+    def calls_since(self, start: int, tool: str) -> List[List[str]]:
+        return [call for call in self.fake()["calls"][start:] if call[:1] == [tool]]
+
     def devices(self) -> Dict[str, Dict[str, Any]]:
         return self.fake()["devices"]
 
@@ -303,6 +354,10 @@ class Harness:
         self.serial += 1
         return f"{head}-0000-4000-8000-{self.serial:012d}"
 
+    def claim_ids_for(self, worktree: str) -> List[str]:
+        return [path.stem for path in (self.state / "claims").glob("*.json")
+                if json.loads(path.read_text()).get("worktree") == worktree]
+
     def claim_ids(self) -> List[str]:
         return sorted(path.stem for path in (self.state / "claims").glob("*.json"))
 
@@ -332,6 +387,8 @@ def test_claims(h: Harness, a: int, b: int) -> Dict[str, Dict[str, Any]]:
     h.check(a1["destination"] == f"platform=iOS Simulator,id={a1['udid']}", "simulator destination")
     h.check(a1["owner"]["pid"] == a and a1["owner"]["startedAt"] and a1["worktree"] == wt_a and a1["label"] == "", "owner")
     h.check(h.devices()[a1["udid"]] == {"name": a1["name"], "runtime": IOS27, "state": "Booted"}, "simulator created and booted")
+    h.check((a1["services"], a1["keptServices"], h.slim(a1["udid"])) == ("slim", ["store", "web"], ["store", "web"]),
+            f"a new simulator boots slim with the profile's categories kept on: {a1['services']} {a1['keptServices']}")
     h.check(a1["id"] in h.claim_ids() and (h.state / "maintenance.json").is_file(), "claim file and maintenance written")
 
     again = h.claim(a, wt_a)
@@ -341,7 +398,7 @@ def test_claims(h: Harness, a: int, b: int) -> Dict[str, Dict[str, Any]]:
     h.check(same_spec["reused"] and same_spec["id"] == a1["id"], "matching --model/--os reuses the claim")
     text = h.run("claim", "--owner-pid", str(a), "--worktree", wt_a).stdout
     for line in (f"claim {a1['id']}", f"udid {a1['udid']}", f"destination {a1['destination']}",
-                 "device iPhone 17 Pro, iOS 27.0 (24A434)", "reused yes", "expires "):
+                 "device iPhone 17 Pro, iOS 27.0 (24A434)", "services slim, kept on: store, web", "reused yes", "expires "):
         h.check(line in text, f"text output has {line!r}:\n{text}")
     h.check(len(h.agent_names()) == 1, "reuse creates no simulator")
 
@@ -368,6 +425,7 @@ def test_claims(h: Harness, a: int, b: int) -> Dict[str, Dict[str, Any]]:
     h.run("claim", "--owner-pid", "999999", "--worktree", wt_c, expect=2)
     lazy = h.claim(a, wt_c, "--label", "nb", "--no-boot")
     h.check(h.devices()[lazy["udid"]]["state"] == "Shutdown" and lazy["runtimeBuild"] is None, "--no-boot")
+    h.check(lazy["services"] == "stock" and h.slim(lazy["udid"]) is None, "--no-boot creates a stock simulator")
     woken = h.claim(a, wt_c, "--label", "nb")
     h.check(woken["reused"] and h.devices()[lazy["udid"]]["state"] == "Booted" and woken["runtimeBuild"] == "24A434",
             "reusing a --no-boot claim boots it and reads the build")
@@ -639,6 +697,60 @@ def test_renamed(h: Harness, a: int, b: int) -> None:
     h.check("AAAAAAAA-0000-4000-8000-000000000001" in h.devices(), "release keeps the real simulator with that name")
 
 
+def test_services(h: Harness, a: int, b: int) -> None:
+    """simslim slims new simulators; --keep-services and --stock change a slim claim; failures leave it stock."""
+    wt = h.worktree("wt-slim")
+    first = h.claim(a, wt)
+    start = len(h.fake()["calls"])
+    wider = h.claim(a, wt, "--keep-services", "pim, photos")
+    h.check(wider["reused"] and wider["id"] == first["id"], "--keep-services reuses the claim")
+    h.check(wider["keptServices"] == ["store", "web", "pim", "photos"] and h.slim(first["udid"]) == wider["keptServices"],
+            f"--keep-services re-slims with more kept on: {wider['keptServices']}")
+    h.check(h.devices()[first["udid"]]["state"] == "Booted", "re-slimmed simulator is booted")
+    start = len(h.fake()["calls"])
+    same = h.claim(a, wt, "--keep-services", "photos,pim")
+    h.check(same["reused"] and not h.calls_since(start, "simslim")[1:], "the same categories in another order change nothing")
+    plain = h.claim(a, wt)
+    h.check(plain["keptServices"] == wider["keptServices"], "a plain claim keeps the current services")
+    stock = h.claim(a, wt, "--stock")
+    h.check(stock["reused"] and stock["services"] == "stock" and h.slim(first["udid"]) is None, "--stock restores stock")
+    start = len(h.fake()["calls"])
+    h.claim(a, wt, "--keep-services", "pim")
+    h.check(not h.calls_since(start, "simslim")[1:] and h.slim(first["udid"]) is None, "a stock claim stays stock")
+    h.release(a, wt)
+
+    start = len(h.fake()["calls"])
+    fresh = h.claim(a, wt, "--stock")
+    h.check(fresh["services"] == "stock" and not h.calls_since(start, "simslim"), "--stock on a new claim never runs simslim")
+    h.release(a, wt)
+
+    stderr = h.claim_fails(a, wt, 2, "--keep-services", "pim,bogus")
+    h.check("unknown service categories bogus" in stderr and not h.claim_ids_for(wt), f"unknown category: {stderr}")
+    h.claim_fails(a, wt, 2, "--stock", "--keep-services", "pim")
+    h.claim_fails(a, wt, 2, "--no-boot", "--keep-services", "pim")
+    h.claim_fails(a, wt, 2, "--device-id", PHYS_A, "--stock")
+
+    start = len(h.fake()["calls"])
+    result = h.run("claim", "--owner-pid", str(a), "--worktree", wt, "--json", env={**h.env, "FAKE_SIMSLIM_FAIL": "1"})
+    failed = json.loads(result.stdout)
+    h.check("simslim on failed: simslim: context deadline exceeded; the simulator runs stock" in result.stderr,
+            f"a simslim failure is reported: {result.stderr}")
+    h.check(failed["services"] == "stock" and h.devices()[failed["udid"]]["state"] == "Booted", "failed slim boots stock")
+    h.check(["simctl", "erase", failed["udid"]] in h.calls_since(start, "simctl"), "failed slim erases the simulator")
+    stderr = h.run("claim", "--owner-pid", str(a), "--worktree", wt, "--label", "x", expect=0,
+                   env={**h.env, "APPLE_SIMULATORS_SIMSLIM": str(h.root / "missing-simslim")}).stderr
+    h.check("simslim is not installed (brew install mobai-app/tap/simslim); the simulator runs stock" in stderr,
+            f"missing simslim: {stderr}")
+    h.release(a, wt)
+    h.release(a, wt, "--label", "x")
+
+    slimmed = h.claim(a, wt)
+    stderr = h.run("claim", "--owner-pid", str(a), "--worktree", wt, "--stock", expect=1,
+                   env={**h.env, "FAKE_SIMSLIM_FAIL": "1"}).stderr
+    h.check("could not change the services" in stderr and slimmed["id"] in h.claim_ids(), f"failed re-slim: {stderr}")
+    h.release(a, wt)
+
+
 def test_signals(h: Harness, a: int, b: int) -> None:
     """A claim interrupted during the first boot deletes its simulator and claim."""
     wt = h.worktree("wt-signal")
@@ -675,6 +787,7 @@ def main() -> int:
         test_ps_failure(h, a, b)
         test_cleanup_errors(h, a, b)
         test_renamed(h, a, b)
+        test_services(h, a, b)
         test_signals(h, a, b)
         h.check(tree_snapshot(h.legacy) == legacy_before, "legacy lease folder never written")
 

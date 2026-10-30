@@ -28,8 +28,9 @@ outside the repository you test.
 python3 "$SIMULATORS_DIR/scripts/simulators.py" claim --worktree <repository root>
 ```
 
-It prints `claim <id>`, `udid <udid>`, `destination platform=iOS Simulator,id=<udid>`, `device <model>, iOS <os> (<build>)`, `reused yes|no`,
-and `expires <time>`, one per line; `--json` prints one object. The first claim takes about 30 seconds (create and first boot).
+It prints `claim <id>`, `udid <udid>`, `destination platform=iOS Simulator,id=<udid>`, `device <model>, iOS <os> (<build>)`,
+`services slim, kept on: <categories>` or `services stock`, `reused yes|no`, and `expires <time>`, one per line; `--json` prints one object.
+The first claim takes about 40 seconds (create, slim, and first boot).
 
 The default device is `iPhone 17 Pro` on the newest installed iOS runtime. Ask for another one only when the work depends on it:
 
@@ -37,7 +38,24 @@ The default device is `iPhone 17 Pro` on the newest installed iOS runtime. Ask f
 - `--os VERSION`: for example `--os 26.5`; `--os 27` takes the newest installed `27.x`.
 - `--runtime-build BUILD`: require one runtime build. Several builds can share one OS version (for example iOS 27.0 `24A5390f` and `24A434`);
   CoreSimulator picks one, and the claim records the build it actually got.
-- `--no-boot`: create without booting. Not with `--runtime-build`.
+- `--no-boot`: create without booting. The simulator runs stock. Not with `--runtime-build` or `--keep-services`.
+
+### Slim services
+
+When [simslim](https://github.com/MobAI-App/simslim) is installed (`brew install mobai-app/tap/simslim`), a new simulator boots slim:
+background services such as Siri, Spotlight, widgets, iCloud, and Photos are off, and it uses about a third of the memory. The categories
+in [assets/simslim-profile.json](assets/simslim-profile.json) stay on: `store` (StoreKit testing, push) and `web` (universal links).
+Without simslim, or if slimming fails, the simulator runs stock and `claim` prints a note; that is not an error.
+
+Ask for more only when the work needs it, for example UI tests that use the system feature:
+
+- `--keep-services CATEGORIES`: keep these simslim categories on as well, comma-separated. Common ones: `widgets` (widgets, Live
+  Activities), `pim` (Contacts, Calendar, Reminders), `photos` (Photos library and pickers), `icloud` (iCloud, CloudKit), `health`
+  (HealthKit), `connectivity` (Watch connectivity), `search` (Spotlight, Files recents). `simslim profiles` lists them all.
+- `--stock`: keep every service on.
+
+On a reused slim claim, either option changes that simulator's services and reboots it (about 15 seconds); a stock claim stays stock. Unit
+tests and snapshot tests of your own views do not need these services.
 
 The script claims iPhone and iPad simulators only; for other simulator platforms, report the device step as blocked.
 
@@ -127,8 +145,9 @@ touches only simulators named `agent-sim <claim-id> <model> <os>`.
 
 Tests run serially by default. Use parallel workers only when the user or repository asks:
 `-parallel-testing-enabled YES -parallel-testing-worker-count N`. Each worker is an XCTest clone of your simulator (`Clone <N> of agent-sim ...`).
-Xcode deletes the clones after a finished run; release deletes any that an interrupted run left behind. The script sets no worker limit, but
-each clone costs memory and boot time; `claim` prints a note when more than 4 simulators are booted on the Mac.
+Xcode deletes the clones after a finished run; release deletes any that an interrupted run left behind. Clones boot stock (slimming does not
+survive cloning), so they cost the full memory. Do not run `simslim watch`: it slims every simulator on the Mac, not only yours. The script
+sets no worker limit, but each clone costs memory and boot time; `claim` prints a note when more than 4 simulators are booted on the Mac.
 
 ## Physical devices
 
@@ -139,7 +158,8 @@ does not combine with `--model`, `--os`, or `--runtime-build`, and does not acce
 ## Hard rules
 
 - Touch only devices you claimed: boot, shut down, erase, install on, or change settings only for your claimed UDID. Create and delete
-  simulators through `claim` and `release`, so the claim record stays in step with the device. Never rename a claimed simulator. The
+  simulators through `claim` and `release`, so the claim record stays in step with the device. Change services through `claim`, not by
+  running `simslim` yourself. Never rename a claimed simulator. The
   automatic cleanup inside `claim` and `release` (abandoned and expired claims, shut-down orphans) is expected and does not break this rule.
 - Never quit Device Hub; its Quit can shut down every simulator on the Mac. Close only your own window.
 - Never download or install simulator runtimes. A missing runtime is a blocked result for the owner.

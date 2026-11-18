@@ -1,0 +1,4 @@
+interface:
+  display_name: "Implement Spec Tickets"
+  short_description: "Run a spec's tickets through Claude Code workflows with negotiated cross-model review"
+  default_prompt: "Use $implement-spec-tickets to implement the tickets of this spec, one Workflow per ticket, with the reviewer model I name."

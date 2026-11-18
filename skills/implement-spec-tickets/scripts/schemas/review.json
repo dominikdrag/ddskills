@@ -1,0 +1,92 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "no_findings",
+    "findings",
+    "responses"
+  ],
+  "properties": {
+    "no_findings": {
+      "type": "boolean"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "severity",
+          "file",
+          "line",
+          "title",
+          "failure",
+          "fix"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "P0",
+              "P1",
+              "P2",
+              "P3"
+            ]
+          },
+          "file": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "failure": {
+            "type": "string"
+          },
+          "fix": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "responses": {
+      "type": "array",
+      "description": "Rounds 2 and 3: one entry per open item carried from earlier rounds (concede, maintain or revise). Empty in round 1.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "position",
+          "argument",
+          "revised_fix"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "concede",
+              "maintain",
+              "revise"
+            ]
+          },
+          "argument": {
+            "type": "string"
+          },
+          "revised_fix": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

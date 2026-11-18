@@ -58,7 +58,7 @@ Installation copies the skill packages; it does not install their runtime depend
 | [manage-apple-simulators](skills/manage-apple-simulators/README.md) | A fresh simulator per agent task, physical device claims, and cleanup, so parallel agents never share a device | macOS, Xcode (`simctl`, `devicectl`) and Python 3; Device Hub and Computer Use only for interactive QA |
 | [transcribe-diarize](skills/transcribe-diarize/SKILL.md) | Completed-file transcription and diarization on the Mac | Apple Silicon, Python 3, Git, Swift, FFmpeg; public model/runtime downloads; WhisperKit CLI for that engine |
 | [orchestrate-implementation-run](skills/orchestrate-implementation-run/SKILL.md) | Several independent implementation slices with one integration owner | Agent delegation; optional implementation-notes skill for justified ledgers; Apple verification skill for Apple work |
-| [coordinate-multi-ticket-run](skills/coordinate-multi-ticket-run/README.md) | Dependency-ordered tickets, checked state transitions, and interrupted-run recovery | Python 3, agent delegation; optional implementation-notes skill for justified ledgers; Apple verification skill for Apple work |
+| [implement-spec-tickets](skills/implement-spec-tickets/README.md) | A spec's dependency-ordered tickets built one Workflow at a time, each reviewed by a second model that a Claude agent negotiates with for up to three rounds | Claude Code with the Workflow tool; the Codex CLI for the reviewer model; Git, Node.js and Python 3; the Apple verification skills for Apple work |
 | [app-social-campaign](skills/app-social-campaign/SKILL.md) | App positioning, finished social assets, captions, and a review pack | Product assets; Node.js, Playwright and Sharp for HTML artwork; Python with Pillow; FFmpeg/ffprobe for video |
 | [app-store-screenshots](skills/app-store-screenshots/SKILL.md) | Screenshot copy, gallery sequencing, authentic device compositions, and checked exports | Current product evidence, real app captures, image inspection, and an appropriate renderer or design tool |
 | [app-store-creative-assets](skills/app-store-creative-assets/SKILL.md) | Static product-page headers and search-results artwork, localized previews and checked delivery packs | Brand/product evidence, image inspection, a suitable renderer; optional Python 3.10+ with Pillow/ImageCms for export checks and packaging |
@@ -84,7 +84,7 @@ This is an example of creative output, not evidence of campaign performance. The
 From a checkout of this repository:
 
 ```sh
-python3 skills/coordinate-multi-ticket-run/scripts/self_test.py
+skills/implement-spec-tickets/scripts/self_test.sh
 python3 skills/run-apple-verification-loop/scripts/self_test.py
 python3 skills/manage-apple-simulators/scripts/self_test.py
 python3 -m unittest discover -s skills/transcribe-diarize/tests -v
@@ -95,7 +95,7 @@ python3 -m unittest discover -s skills/app-store-creative-assets/tests -v
 python3 -m unittest discover -s skills/publish-social-carousels/tests -v
 ```
 
-These checks exercise workflow transitions, test-log counting with fixtures, simulator claims and cleanup with a fake `xcrun`, transcription routing/alignment with fixtures, canvas artboard lint and index building, App Map board building, layout and drift checks on a fixture app, campaign artifact rules, and creative-image validation, preview generation and archive integrity. They do not run an Apple app, create real simulators, measure transcription accuracy, or evaluate an agent's creative judgment.
+These checks exercise the ticket workflow's control flow with mocked agents, test-log counting with fixtures, simulator claims and cleanup with a fake `xcrun`, transcription routing/alignment with fixtures, canvas artboard lint and index building, App Map board building, layout and drift checks on a fixture app, campaign artifact rules, and creative-image validation, preview generation and archive integrity. They do not run an Apple app, create real simulators, measure transcription accuracy, or evaluate an agent's creative judgment.
 
 ## Maintenance and license
 
